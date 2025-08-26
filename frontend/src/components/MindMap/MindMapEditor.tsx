@@ -119,7 +119,7 @@ const MindMapEditor: React.FC = () => {
   }, [currentMindmap, setNodes, setEdges, collapsedNodes]);
 
   // 处理节点布局和收折状态
-  const processNodesWithLayout = (rawNodes: any[]) => {
+  const processNodesWithLayout = useCallback((rawNodes: any[]) => {
     const nodeMap = new Map(rawNodes.map(node => [node.id, node]));
     const processedNodes = [];
     
@@ -163,36 +163,7 @@ const MindMapEditor: React.FC = () => {
     setSelectedNode(null);
   };
 
-  // 添加子节点
-  const handleAddNode = (parentId?: string) => {
-    const newNodeId = `node-${Date.now()}`;
-    const parentNode = parentId ? nodes.find(n => n.id === parentId) : null;
-    const level = parentNode ? (parentNode.data?.level || 0) + 1 : 0;
-    
-    const newNode = {
-      id: newNodeId,
-      type: 'custom',
-      position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: {
-        label: '新节点',
-        content: '',
-        level,
-        parent_id: parentId || null,
-      },
-    };
 
-    setNodes(prev => [...prev, newNode]);
-    
-    if (parentId) {
-      const newEdge = {
-        id: `edge-${Date.now()}`,
-        source: parentId,
-        target: newNodeId,
-        type: 'default',
-      };
-      setEdges(prev => [...prev, newEdge]);
-    }
-  };
 
   // 扩展节点
   const handleExpandNode = (nodeId: string) => {
@@ -229,14 +200,20 @@ const MindMapEditor: React.FC = () => {
     }
     
     return applyImprovedLayout(processedNodes);
-  };
+  }, [collapsedNodes]);
+
+  // 重新应用智能布局到所有节点
+  const reapplyLayout = useCallback((updatedNodes: any[], updatedEdges: any[]) => {
+    const processedNodes = processNodesWithLayout(updatedNodes);
+    setNodes(processedNodes);
+    setEdges(updatedEdges);
+  }, [processNodesWithLayout, setNodes, setEdges]);
   
-  // 改进的布局算法
+  // 从左到右的树形布局算法
   const applyImprovedLayout = (nodes: any[]) => {
     if (nodes.length === 0) return nodes;
     
     const layoutNodes = [...nodes];
-    const nodeMap = new Map(layoutNodes.map(node => [node.id, node]));
     
     // 找到根节点
     const rootNode = layoutNodes.find(node => 
@@ -258,45 +235,64 @@ const MindMapEditor: React.FC = () => {
       }
     });
     
+    // 计算每个节点的子树高度（用于垂直间距计算）
+    const calculateSubtreeHeight = (nodeId: string): number => {
+      const children = childrenMap.get(nodeId) || [];
+      if (children.length === 0) return 1;
+      return children.reduce((sum, child) => sum + calculateSubtreeHeight(child.id), 0);
+    };
+    
+    // 树形布局配置
+    const LEVEL_WIDTH = 250; // 每层之间的水平间距
+    const NODE_HEIGHT = 80;  // 节点之间的垂直间距
+    const ROOT_X = 100;      // 根节点的X坐标
+    const ROOT_Y = 300;      // 根节点的Y坐标
+    
     // 递归计算节点位置
-    const calculateNodePosition = (node: any, x: number, y: number, angle: number = 0, radius: number = 0): void => {
+    const calculateNodePosition = (node: any, x: number, startY: number): number => {
       const nodeIndex = layoutNodes.findIndex(n => n.id === node.id);
+      const children = childrenMap.get(node.id) || [];
+      
+      if (children.length === 0) {
+        // 叶子节点：直接设置位置
+        if (nodeIndex !== -1) {
+          layoutNodes[nodeIndex] = {
+            ...layoutNodes[nodeIndex],
+            position: { x, y: startY },
+          };
+        }
+        return startY + NODE_HEIGHT;
+      }
+      
+      // 有子节点：先计算所有子节点的位置
+      let currentY = startY;
+      const childPositions: number[] = [];
+      
+      children.forEach((child) => {
+        const childX = x + LEVEL_WIDTH;
+        const childEndY = calculateNodePosition(child, childX, currentY);
+        childPositions.push((currentY + childEndY - NODE_HEIGHT) / 2); // 子节点的中心Y坐标
+        currentY = childEndY;
+      });
+      
+      // 计算当前节点的Y坐标（子节点的中心位置）
+      const nodeY = childPositions.length > 0 
+        ? (childPositions[0] + childPositions[childPositions.length - 1]) / 2
+        : startY;
+      
+      // 设置当前节点位置
       if (nodeIndex !== -1) {
         layoutNodes[nodeIndex] = {
           ...layoutNodes[nodeIndex],
-          position: { x, y },
+          position: { x, y: nodeY },
         };
       }
       
-      const children = childrenMap.get(node.id) || [];
-      if (children.length === 0) return;
-      
-      const level = node.data?.level || 0;
-      const childRadius = Math.max(150, 100 + level * 50);
-      const angleStep = children.length > 1 ? (Math.PI * 1.5) / (children.length - 1) : 0;
-      const startAngle = level === 0 ? -Math.PI * 0.75 : angle - angleStep * (children.length - 1) / 2;
-      
-      children.forEach((child, index) => {
-        let childAngle, childX, childY;
-        
-        if (level === 0) {
-          // 根节点的子节点采用放射状布局
-          childAngle = startAngle + angleStep * index;
-          childX = x + Math.cos(childAngle) * childRadius;
-          childY = y + Math.sin(childAngle) * childRadius;
-        } else {
-          // 非根节点的子节点采用扇形布局
-          childAngle = startAngle + angleStep * index;
-          childX = x + Math.cos(childAngle) * childRadius;
-          childY = y + Math.sin(childAngle) * childRadius;
-        }
-        
-        calculateNodePosition(child, childX, childY, childAngle, childRadius);
-      });
+      return currentY;
     };
     
     // 从根节点开始计算位置
-    calculateNodePosition(rootNode, 0, 0);
+    calculateNodePosition(rootNode, ROOT_X, ROOT_Y);
     
     return layoutNodes;
   };
@@ -305,6 +301,20 @@ const MindMapEditor: React.FC = () => {
   useEffect(() => {
     setHasUnsavedChanges(true);
   }, [nodes, edges]);
+
+  // 处理节点拖动结束事件
+  const handleNodeDragStop = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      // 拖动结束后重新应用布局
+      setTimeout(() => {
+        setNodes(currentNodes => {
+          const processedNodes = processNodesWithLayout(currentNodes);
+          return processedNodes;
+        });
+      }, 100);
+    },
+    [processNodesWithLayout, setNodes]
+  );
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -386,9 +396,7 @@ const MindMapEditor: React.FC = () => {
     const newNode: CustomNode = {
       id: `node-${Date.now()}`,
       type: 'custom',
-      position: parentNode 
-        ? { x: parentNode.position.x + 200, y: parentNode.position.y + 100 }
-        : { x: Math.random() * 400, y: Math.random() * 400 },
+      position: { x: 0, y: 0 }, // 临时位置，将由布局算法重新计算
       data: {
         label: newNodeTitle.trim(),
         description: newNodeDescription.trim(),
@@ -403,7 +411,9 @@ const MindMapEditor: React.FC = () => {
         onExpand: handleExpandNode,
       },
     };
-    setNodes((nds) => [...nds, newNode]);
+    
+    const updatedNodes = [...nodes, newNode];
+    let updatedEdges = [...edges];
     
     // 如果有父节点，创建连接边
     if (parentNodeForNewNode) {
@@ -413,8 +423,11 @@ const MindMapEditor: React.FC = () => {
         target: newNode.id,
         type: 'smoothstep',
       };
-      setEdges((eds) => [...eds, newEdge]);
+      updatedEdges = [...edges, newEdge];
     }
+
+    // 立即重新应用智能布局
+    reapplyLayout(updatedNodes, updatedEdges);
 
     // 关闭对话框并重置状态
     setAddNodeDialogOpen(false);
@@ -565,6 +578,7 @@ const MindMapEditor: React.FC = () => {
               onNodeClick={handleNodeClick}
               onNodeDoubleClick={handleNodeDoubleClick}
               onNodeContextMenu={handleNodeContextMenu}
+              onNodeDragStop={handleNodeDragStop}
               nodeTypes={nodeTypes}
               fitView
               attributionPosition="bottom-left"

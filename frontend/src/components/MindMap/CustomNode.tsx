@@ -97,7 +97,7 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected })
     >
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         style={{
           background: getNodeColor(data.level),
           width: '8px',
@@ -208,7 +208,7 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected })
 
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         style={{
           background: getNodeColor(data.level),
           width: '8px',
