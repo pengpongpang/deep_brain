@@ -95,15 +95,17 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected })
         },
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{
-          background: getNodeColor(data.level),
-          width: '8px',
-          height: '8px',
-        }}
-      />
+      {data.level > 0 && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          style={{
+            background: getNodeColor(data.level),
+            width: '8px',
+            height: '8px',
+          }}
+        />
+      )}
       
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         {data.hasChildren && (

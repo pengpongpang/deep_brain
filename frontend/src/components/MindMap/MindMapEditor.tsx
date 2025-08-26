@@ -65,6 +65,7 @@ interface NodeData {
   isRoot?: boolean;
   hasChildren?: boolean;
   collapsed?: boolean;
+  order?: number; // 同级节点的排序字段
   onEdit?: (nodeId: string) => void;
   onDelete?: (nodeId: string) => void;
   onAddChild?: (nodeId: string) => void;
@@ -151,17 +152,7 @@ const MindMapEditor: React.FC = () => {
     }
   };
 
-  // 删除节点
-  const handleDeleteNode = (nodeId?: string) => {
-    const targetNodeId = nodeId || selectedNode?.id;
-    if (!targetNodeId) return;
 
-    setNodes(prev => prev.filter(node => node.id !== targetNodeId));
-    setEdges(prev => prev.filter(edge => 
-      edge.source !== targetNodeId && edge.target !== targetNodeId
-    ));
-    setSelectedNode(null);
-  };
 
 
 
@@ -235,6 +226,11 @@ const MindMapEditor: React.FC = () => {
       }
     });
     
+    // 对每个父节点的子节点按order字段排序
+    childrenMap.forEach((children, parentId) => {
+      children.sort((a, b) => (a.data?.order || 0) - (b.data?.order || 0));
+    });
+    
     // 计算每个节点的子树高度（用于垂直间距计算）
     const calculateSubtreeHeight = (nodeId: string): number => {
       const children = childrenMap.get(nodeId) || [];
@@ -304,16 +300,142 @@ const MindMapEditor: React.FC = () => {
 
   // 处理节点拖动结束事件
   const handleNodeDragStop = useCallback(
-    (event: React.MouseEvent, node: Node) => {
-      // 拖动结束后重新应用布局
-      setTimeout(() => {
-        setNodes(currentNodes => {
-          const processedNodes = processNodesWithLayout(currentNodes);
-          return processedNodes;
-        });
-      }, 100);
+    (event: React.MouseEvent, draggedNode: Node) => {
+      // 检查是否拖拽到其他节点上
+      const draggedNodeRect = {
+        x: draggedNode.position.x,
+        y: draggedNode.position.y,
+        width: 200, // 节点宽度
+        height: 80,  // 节点高度
+      };
+      
+      // 查找与拖拽节点重叠的目标节点
+      const targetNode = nodes.find(node => {
+        if (node.id === draggedNode.id) return false; // 排除自己
+        
+        const nodeRect = {
+          x: node.position.x,
+          y: node.position.y,
+          width: 200,
+          height: 80,
+        };
+        
+        // 检查矩形重叠
+        return (
+          draggedNodeRect.x < nodeRect.x + nodeRect.width &&
+          draggedNodeRect.x + draggedNodeRect.width > nodeRect.x &&
+          draggedNodeRect.y < nodeRect.y + nodeRect.height &&
+          draggedNodeRect.y + draggedNodeRect.height > nodeRect.y
+        );
+      });
+      
+      // 如果找到目标节点，建立父子关系
+      if (targetNode && targetNode.id !== draggedNode.data.parent_id) {
+        // 防止循环引用：检查目标节点不是拖拽节点的子节点
+        const isCircularReference = (parentId: string, childId: string): boolean => {
+          const parent = nodes.find(n => n.id === parentId);
+          if (!parent) return false;
+          if (parent.data.parent_id === childId) return true;
+          if (parent.data.parent_id) {
+            return isCircularReference(parent.data.parent_id, childId);
+          }
+          return false;
+        };
+        
+        if (!isCircularReference(targetNode.id, draggedNode.id)) {
+          // 更新拖拽节点的父子关系
+          setNodes(currentNodes => {
+            const updatedNodes = currentNodes.map(node => {
+              if (node.id === draggedNode.id) {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    parent_id: targetNode.id,
+                    level: (targetNode.data.level || 0) + 1,
+                    isRoot: false,
+                  },
+                };
+              }
+              return node;
+            });
+            
+            // 移除旧的边
+            setEdges(currentEdges => {
+              const filteredEdges = currentEdges.filter(edge => edge.target !== draggedNode.id);
+              // 添加新的边
+              const newEdge = {
+                id: `edge-${targetNode.id}-${draggedNode.id}`,
+                source: targetNode.id,
+                target: draggedNode.id,
+                type: 'smoothstep',
+              };
+              return [...filteredEdges, newEdge];
+            });
+            
+            return processNodesWithLayout(updatedNodes);
+          });
+          
+          // 显示成功提示
+          dispatch(addNotification({
+            type: 'success',
+            message: `节点"${draggedNode.data.label}"已设为"${targetNode.data.label}"的子节点`,
+          }));
+          
+          return; // 提前返回，不执行下面的重新布局
+        }
+      }
+      
+      // 如果没有建立新的父子关系，检查是否是同级节点排序
+       if (draggedNode.data.parent_id) {
+         // 获取同级节点
+         const siblings = nodes.filter(node => 
+           node.data.parent_id === draggedNode.data.parent_id && 
+           node.id !== draggedNode.id
+         );
+         
+         if (siblings.length > 0) {
+           // 按Y坐标排序同级节点，确定新的排序
+           const allSiblings = [...siblings, draggedNode].sort((a, b) => a.position.y - b.position.y);
+           
+           // 更新所有同级节点的order字段
+           setNodes(currentNodes => {
+             const updatedNodes = currentNodes.map(node => {
+               const siblingIndex = allSiblings.findIndex(s => s.id === node.id);
+               if (siblingIndex !== -1) {
+                 return {
+                   ...node,
+                   data: {
+                     ...node.data,
+                     order: siblingIndex,
+                   },
+                 };
+               }
+               return node;
+             });
+             
+             return processNodesWithLayout(updatedNodes);
+           });
+           
+           // 显示排序成功提示
+           dispatch(addNotification({
+             type: 'info',
+             message: `节点"${draggedNode.data.label}"已重新排序`,
+           }));
+           
+           return;
+         }
+       }
+       
+       // 如果没有排序操作，只是重新应用布局
+       setTimeout(() => {
+         setNodes(currentNodes => {
+           const processedNodes = processNodesWithLayout(currentNodes);
+           return processedNodes;
+         });
+       }, 100);
     },
-    [processNodesWithLayout, setNodes]
+    [nodes, processNodesWithLayout, setNodes, setEdges, dispatch]
   );
 
   const onConnect = useCallback(
@@ -380,7 +502,20 @@ const MindMapEditor: React.FC = () => {
 
   const handleAddNode = (parentId?: string) => {
     // 如果没有指定父节点但有选中的节点，则使用选中的节点作为父节点
-    const actualParentId = parentId || selectedNode?.id || null;
+    // 如果都没有，则使用根节点作为父节点
+    let actualParentId: string | null = parentId || selectedNode?.id || null;
+    
+    if (!actualParentId) {
+      // 找到根节点
+      const rootNode = nodes.find(node => 
+        node.data?.isRoot === true || 
+        node.data?.level === 0 || 
+        node.data?.parent_id === null || 
+        node.data?.parent_id === undefined
+      );
+      actualParentId = rootNode?.id || null;
+    }
+    
     setParentNodeForNewNode(actualParentId);
     setNewNodeTitle('');
     setNewNodeDescription('');
@@ -393,6 +528,12 @@ const MindMapEditor: React.FC = () => {
     }
 
     const parentNode = parentNodeForNewNode ? nodes.find(n => n.id === parentNodeForNewNode) : null;
+    
+    // 计算新节点的order值（同级节点的最大order + 1）
+    const siblings = nodes.filter(node => node.data.parent_id === parentNodeForNewNode);
+    const maxOrder = siblings.reduce((max, node) => Math.max(max, node.data?.order || 0), -1);
+    const newOrder = maxOrder + 1;
+    
     const newNode: CustomNode = {
       id: `node-${Date.now()}`,
       type: 'custom',
@@ -405,6 +546,7 @@ const MindMapEditor: React.FC = () => {
         level: parentNode ? (parentNode.data.level || 0) + 1 : 1,
         parent_id: parentNodeForNewNode || null,
         isRoot: !parentNodeForNewNode,
+        order: newOrder,
         onEdit: handleEditNode,
         onDelete: handleDeleteNode,
         onAddChild: handleAddNode,

@@ -185,7 +185,7 @@ class LLMService:
         central_id = str(uuid.uuid4())
         nodes.append({
             "id": central_id,
-            "type": "default",
+            "type": "custom",
             "position": {"x": 400, "y": 200},
             "data": {
                 "label": mindmap_data.get("central_topic", "主题"),
@@ -232,7 +232,7 @@ class LLMService:
         
         nodes.append({
             "id": node_id,
-            "type": "default",
+            "type": "custom",
             "position": {"x": x, "y": y},
             "data": {
                 "label": branch.get("label", f"节点{branch_index + 1}"),
@@ -293,7 +293,7 @@ class LLMService:
             
             new_nodes.append({
                 "id": child_id,
-                "type": "default",
+                "type": "custom",
                 "position": {"x": x, "y": y},
                 "data": {
                     "label": child.get("label", f"新节点{i + 1}"),
@@ -326,7 +326,7 @@ class LLMService:
         
         nodes = [{
             "id": central_id,
-            "type": "default",
+            "type": "custom",
             "position": {"x": 400, "y": 200},
             "data": {
                 "label": topic,
