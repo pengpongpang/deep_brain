@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import {
   Box,
@@ -30,8 +30,8 @@ interface CustomNodeData {
   onToggleCollapse?: (nodeId: string) => void;
 }
 
-const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected }) => {
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -65,7 +65,13 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected })
 
   const handleToggleCollapse = (event: React.MouseEvent) => {
     event.stopPropagation();
+    console.log('=== CUSTOM NODE: Toggle collapse clicked ===');
+    console.log('Node ID:', id);
+    console.log('Node label:', data.label);
+    console.log('Current collapsed state:', data.collapsed);
+    console.log('Has children:', data.hasChildren);
     data.onToggleCollapse?.(id);
+    console.log('=== CUSTOM NODE: Toggle collapse end ===');
   };
 
   const getNodeColor = (level: number) => {
@@ -108,24 +114,27 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected })
       )}
       
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-        {data.hasChildren && (
-          <IconButton
-            size="small"
-            onClick={handleToggleCollapse}
-            sx={{
-              width: '16px',
-              height: '16px',
-              padding: 0,
-              minWidth: 'auto',
-            }}
-          >
-            {data.collapsed ? (
-              <ChevronRightIcon fontSize="small" />
-            ) : (
-              <ExpandMoreIcon fontSize="small" />
-            )}
-          </IconButton>
-        )}
+        {(() => {
+          console.log(`Node ${id} (${data.label}): hasChildren=${data.hasChildren}, collapsed=${data.collapsed}`);
+          return data.hasChildren && (
+            <IconButton
+              size="small"
+              onClick={handleToggleCollapse}
+              sx={{
+                width: '16px',
+                height: '16px',
+                padding: 0,
+                minWidth: 'auto',
+              }}
+            >
+              {data.collapsed ? (
+                <ChevronRightIcon fontSize="small" />
+              ) : (
+                <ExpandMoreIcon fontSize="small" />
+              )}
+            </IconButton>
+          );
+        })()}
         
         <Box sx={{ flex: 1 }}>
           <Typography
@@ -221,4 +230,17 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data, selected })
   );
 };
 
-export default memo(CustomNode);
+export default memo(CustomNode, (prevProps, nextProps) => {
+  // 自定义比较函数，确保关键属性变化时重新渲染
+  const prevData = prevProps.data;
+  const nextData = nextProps.data;
+  
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.selected === nextProps.selected &&
+    prevData.label === nextData.label &&
+    prevData.hasChildren === nextData.hasChildren &&
+    prevData.collapsed === nextData.collapsed &&
+    prevData.level === nextData.level
+  );
+});
