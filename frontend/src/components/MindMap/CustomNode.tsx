@@ -8,7 +8,6 @@ import {
   MenuItem,
 } from '@mui/material';
 import {
-  MoreVert as MoreVertIcon,
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -34,7 +33,8 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
   };
@@ -87,6 +87,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
   return (
     <Box
+      onContextMenu={handleContextMenu}
       sx={{
         padding: '12px 16px',
         borderRadius: '8px',
@@ -113,29 +114,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         />
       )}
       
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-        {(() => {
-          console.log(`Node ${id} (${data.label}): hasChildren=${data.hasChildren}, collapsed=${data.collapsed}`);
-          return data.hasChildren && (
-            <IconButton
-              size="small"
-              onClick={handleToggleCollapse}
-              sx={{
-                width: '16px',
-                height: '16px',
-                padding: 0,
-                minWidth: 'auto',
-              }}
-            >
-              {data.collapsed ? (
-                <ChevronRightIcon fontSize="small" />
-              ) : (
-                <ExpandMoreIcon fontSize="small" />
-              )}
-            </IconButton>
-          );
-        })()}
-        
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ flex: 1 }}>
           <Typography
             variant="body2"
@@ -166,25 +145,30 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             </Typography>
           )}
         </Box>
+        
+        {(() => {
+          console.log(`Node ${id} (${data.label}): hasChildren=${data.hasChildren}, collapsed=${data.collapsed}`);
+          return data.hasChildren && (
+            <IconButton
+              size="small"
+              onClick={handleToggleCollapse}
+              sx={{
+                width: '20px',
+                height: '20px',
+                padding: 0,
+                minWidth: 'auto',
+                ml: 1,
+              }}
+            >
+              {data.collapsed ? (
+                <ChevronRightIcon fontSize="small" />
+              ) : (
+                <ExpandMoreIcon fontSize="small" />
+              )}
+            </IconButton>
+          );
+        })()}
       </Box>
-
-      <IconButton
-        size="small"
-        onClick={handleMenuClick}
-        sx={{
-          position: 'absolute',
-          top: '4px',
-          right: '4px',
-          width: '20px',
-          height: '20px',
-          opacity: 0.7,
-          '&:hover': {
-            opacity: 1,
-          },
-        }}
-      >
-        <MoreVertIcon fontSize="small" />
-      </IconButton>
 
       <Menu
         anchorEl={anchorEl}
@@ -192,11 +176,11 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         onClose={handleMenuClose}
         anchorOrigin={{
           vertical: 'bottom',
-          horizontal: 'right',
+          horizontal: 'left',
         }}
         transformOrigin={{
           vertical: 'top',
-          horizontal: 'right',
+          horizontal: 'left',
         }}
       >
         <MenuItem onClick={handleEdit}>
