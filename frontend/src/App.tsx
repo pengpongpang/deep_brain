@@ -10,7 +10,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Layout from './components/Layout/Layout';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
-import Dashboard from './components/Dashboard/Dashboard';
+
 import MindMapEditor from './components/MindMap/MindMapEditor';
 import MindMapList from './components/MindMap/MindMapList';
 import Profile from './components/Profile/Profile';
@@ -106,11 +106,11 @@ function App() {
           {/* 公开路由 */}
           <Route 
             path="/login" 
-            element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} 
+            element={!isAuthenticated ? <Login /> : <Navigate to="/mindmaps" />} 
           />
           <Route 
             path="/register" 
-            element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} 
+            element={!isAuthenticated ? <Register /> : <Navigate to="/mindmaps" />} 
           />
           
           {/* 受保护的路由 */}
@@ -122,8 +122,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard" />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route index element={<Navigate to="/mindmaps" />} />
             <Route path="mindmaps" element={<MindMapList />} />
             <Route path="mindmaps/:id" element={<MindMapEditor />} />
             <Route path="profile" element={<Profile />} />
@@ -132,7 +131,7 @@ function App() {
           {/* 默认重定向 */}
           <Route 
             path="*" 
-            element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} 
+            element={<Navigate to={isAuthenticated ? "/mindmaps" : "/login"} />} 
           />
       </Routes>
       

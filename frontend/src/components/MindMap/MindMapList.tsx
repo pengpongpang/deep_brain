@@ -21,6 +21,7 @@ import {
   DialogActions,
   Chip,
   CircularProgress,
+  Fab,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -30,20 +31,38 @@ import {
   Share as ShareIcon,
   Public as PublicIcon,
   Lock as PrivateIcon,
+  Add as AddIcon,
+  AccountTree as MindMapIcon,
 } from '@mui/icons-material';
+import { useForm } from 'react-hook-form';
 import { RootState, AppDispatch } from '../../store/store';
-import { fetchMindmaps, deleteMindmap } from '../../store/slices/mindmapSlice';
+import { fetchMindmaps, deleteMindmap, generateMindmap } from '../../store/slices/mindmapSlice';
 import { addNotification } from '../../store/slices/uiSlice';
+
+interface CreateMindMapFormData {
+  topic: string;
+  description?: string;
+}
 
 const MindMapList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { mindmaps, isLoading } = useSelector((state: RootState) => state.mindmap);
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { isGenerating } = useSelector((state: RootState) => state.ui);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMindmapId, setSelectedMindmapId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mindmapToDelete, setMindmapToDelete] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateMindMapFormData>();
 
   useEffect(() => {
     dispatch(fetchMindmaps());
@@ -95,6 +114,32 @@ const MindMapList: React.FC = () => {
     setMindmapToDelete(null);
   };
 
+  const handleCreateMindMap = async (data: CreateMindMapFormData) => {
+    try {
+      const result = await dispatch(generateMindmap({
+        topic: data.topic,
+        description: data.description,
+        depth: 3,
+        style: 'default',
+      })).unwrap();
+      
+      if (result && (result as any).mindmap) {
+        dispatch(addNotification({
+          type: 'success',
+          message: '思维导图创建成功！',
+        }));
+        setCreateDialogOpen(false);
+        reset();
+        navigate(`/mindmaps/${(result as any).mindmap.id}`);
+      }
+    } catch (error) {
+      dispatch(addNotification({
+        type: 'error',
+        message: '创建思维导图失败，请重试',
+      }));
+    }
+  };
+
   const handleShare = () => {
     // TODO: 实现分享功能
     dispatch(addNotification({
@@ -113,10 +158,76 @@ const MindMapList: React.FC = () => {
     <Container maxWidth="lg">
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          我的思维导图
+          欢迎回来，{user?.username}！
         </Typography>
         <Typography variant="body1" color="textSecondary" gutterBottom>
-          管理和编辑您的所有思维导图
+          开始创建您的思维导图，整理和可视化您的想法。
+        </Typography>
+      </Box>
+
+      {/* 统计卡片 */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <MindMapIcon color="primary" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    思维导图总数
+                  </Typography>
+                  <Typography variant="h5">
+                    {mindmaps.length}
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <MindMapIcon color="secondary" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography color="textSecondary" gutterBottom>
+                    本周创建
+                  </Typography>
+                  <Typography variant="h5">
+                    {mindmaps.filter(m => {
+                      const weekAgo = new Date();
+                      weekAgo.setDate(weekAgo.getDate() - 7);
+                      return new Date(m.created_at) > weekAgo;
+                    }).length}
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* 快速操作 */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          快速操作
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              创建思维导图
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          我的思维导图
         </Typography>
         
         <TextField
@@ -210,7 +321,7 @@ const MindMapList: React.FC = () => {
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => setCreateDialogOpen(true)}
                 >
                   创建第一个思维导图
                 </Button>
@@ -219,6 +330,20 @@ const MindMapList: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* 浮动操作按钮 */}
+      <Fab
+        color="primary"
+        aria-label="add"
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+        }}
+        onClick={() => setCreateDialogOpen(true)}
+      >
+        <AddIcon />
+      </Fab>
 
       {/* 操作菜单 */}
       <Menu
@@ -257,6 +382,45 @@ const MindMapList: React.FC = () => {
             删除
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* 创建思维导图对话框 */}
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>创建新的思维导图</DialogTitle>
+        <form onSubmit={handleSubmit(handleCreateMindMap)}>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="主题"
+              fullWidth
+              variant="outlined"
+              {...register('topic', { required: '请输入主题' })}
+              error={!!errors.topic}
+              helperText={errors.topic?.message}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="描述（可选）"
+              fullWidth
+              multiline
+              rows={3}
+              variant="outlined"
+              {...register('description')}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCreateDialogOpen(false)}>取消</Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={isGenerating}
+            >
+              {isGenerating ? '生成中...' : '创建'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </Container>
   );

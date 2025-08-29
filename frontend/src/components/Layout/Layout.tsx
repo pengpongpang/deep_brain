@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
+
   AccountTree as MindMapIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
@@ -69,7 +69,6 @@ const Layout: React.FC = () => {
   };
 
   const menuItems = [
-    { text: '仪表板', icon: <DashboardIcon />, path: '/dashboard' },
     { text: '思维导图', icon: <MindMapIcon />, path: '/mindmaps' },
   ];
 
