@@ -72,24 +72,25 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
 
   if (!rootNode) return nodes;
 
-  // 构建节点映射
-  const nodeMap = new Map(nodes.map(node => [node.id, node]));
-  const processedNodes: CustomNode[] = [];
-  const levelGroups: { [level: number]: CustomNode[] } = {};
-
-  // 按层级分组
-  nodes.forEach(node => {
-    const level = node.data?.level || 0;
-    if (!levelGroups[level]) {
-      levelGroups[level] = [];
-    }
-    levelGroups[level].push(node);
-  });
-
   // 计算每个节点的位置
   const nodePositions = new Map<string, { x: number; y: number }>();
-  const levelHeight = 120;
-  const nodeSpacing = 200;
+  const levelWidth = 250; // 增加层级间距
+  const minNodeSpacing = 120; // 最小节点间距
+  const nodeHeight = 80; // 节点高度
+
+  // 计算子树高度的函数
+  const calculateSubtreeHeight = (nodeId: string): number => {
+    const children = nodes.filter(node => node.data?.parent_id === nodeId);
+    if (children.length === 0) return nodeHeight;
+    
+    let totalHeight = 0;
+    children.forEach(child => {
+      totalHeight += calculateSubtreeHeight(child.id);
+    });
+    
+    // 确保子树高度至少等于子节点数量 * 最小间距
+    return Math.max(totalHeight, children.length * minNodeSpacing);
+  };
 
   // 处理根节点
   nodePositions.set(rootNode.id, { x: 0, y: 0 });
@@ -105,13 +106,27 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     const parentPos = nodePositions.get(parentId);
     if (!parentPos) return;
 
-    const startY = parentPos.y - ((children.length - 1) * nodeSpacing) / 2;
-
+    // 计算每个子节点的子树高度
+    const childHeights = children.map(child => calculateSubtreeHeight(child.id));
+    const totalHeight = childHeights.reduce((sum, height) => sum + height, 0);
+    
+    // 计算起始Y位置，使子节点居中分布
+    let currentY = parentPos.y - totalHeight / 2;
+    
     children.forEach((child, index) => {
-      const x = parentPos.x + levelHeight * 2;
-      const y = startY + index * nodeSpacing;
+      const x = parentPos.x + levelWidth;
+      const childHeight = childHeights[index];
+      
+      // 将节点放在其子树高度的中心
+      const y = currentY + childHeight / 2;
+      
       nodePositions.set(child.id, { x, y });
+      
+      // 递归处理子节点
       processChildren(child.id, level + 1);
+      
+      // 移动到下一个子节点的位置
+      currentY += childHeight;
     });
   };
 
