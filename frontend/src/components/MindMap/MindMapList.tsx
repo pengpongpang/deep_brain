@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -32,23 +32,38 @@ import {
   Public as PublicIcon,
   Lock as PrivateIcon,
   Add as AddIcon,
-  AccountTree as MindMapIcon,
 } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 import { RootState, AppDispatch } from '../../store/store';
 import { fetchMindmaps, deleteMindmap, generateMindmap, clearCompletedMindmapId } from '../../store/slices/mindmapSlice';
 import { addNotification } from '../../store/slices/uiSlice';
+import { getStatusColor, getStatusText } from '../../utils/taskUtils';
 
 interface CreateMindMapFormData {
   topic: string;
   description?: string;
 }
 
+interface UnifiedItem {
+  id: string;
+  type: 'task' | 'mindmap';
+  title: string;
+  description: string;
+  created_at: string;
+  isGenerating: boolean;
+  // 任务特有属性
+  status?: string;
+  progress?: number;
+  task_type?: string;
+  // 思维导图特有属性
+  is_public?: boolean;
+  nodes?: any[];
+}
+
 const MindMapList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { mindmaps, isLoading, isGenerating, generatingTasks, completedMindmapId } = useSelector((state: RootState) => state.mindmap);
-  const { user } = useSelector((state: RootState) => state.auth);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMindmapId, setSelectedMindmapId] = useState<string | null>(null);
@@ -153,7 +168,23 @@ const MindMapList: React.FC = () => {
 
   // 获取当前正在生成的任务
   const currentGeneratingTasks = Object.values(generatingTasks);
-  const hasGeneratingTasks = currentGeneratingTasks.length > 0;
+  
+  // 使用ref记录之前的任务数量，用于检测任务完成
+  const prevTaskCountRef = useRef(currentGeneratingTasks.length);
+
+  // 监听任务数量变化，当任务完成时刷新思维导图列表
+  useEffect(() => {
+    const currentTaskCount = currentGeneratingTasks.length;
+    const prevTaskCount = prevTaskCountRef.current;
+    
+    // 如果任务数量减少，说明有任务完成了，刷新思维导图列表
+    if (prevTaskCount > 0 && currentTaskCount < prevTaskCount) {
+      dispatch(fetchMindmaps());
+    }
+    
+    // 更新记录的任务数量
+    prevTaskCountRef.current = currentTaskCount;
+  }, [currentGeneratingTasks.length, dispatch]);
 
   const handleShare = () => {
     // TODO: 实现分享功能
@@ -164,134 +195,50 @@ const MindMapList: React.FC = () => {
     handleMenuClose();
   };
 
-  const filteredMindmaps = mindmaps.filter(mindmap =>
-    mindmap.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (mindmap.description && mindmap.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  // 创建统一的项目列表，包含正在生成的任务和已完成的思维导图
+  const unifiedItems = useMemo((): UnifiedItem[] => {
+    const items: UnifiedItem[] = [];
+    
+    // 添加正在生成的任务
+    currentGeneratingTasks.forEach(task => {
+      items.push({
+        id: `task-${task.id}`,
+        type: 'task',
+        title: task.title || task.input_data?.topic || '未命名任务',
+        description: task.description || task.input_data?.description || '正在使用AI生成思维导图...',
+        created_at: task.created_at,
+        status: task.status,
+        progress: task.progress,
+        task_type: task.task_type,
+        isGenerating: true
+      });
+    });
+    
+    // 添加已完成的思维导图
+    mindmaps.forEach(mindmap => {
+      items.push({
+        id: mindmap.id,
+        type: 'mindmap',
+        title: mindmap.title,
+        description: mindmap.description || '暂无描述',
+        created_at: mindmap.created_at,
+        is_public: mindmap.is_public,
+        nodes: mindmap.nodes,
+        isGenerating: false
+      });
+    });
+    
+    // 按创建时间排序，最新的在前面
+    return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [currentGeneratingTasks, mindmaps]);
+
+  const filteredItems = unifiedItems.filter((item: UnifiedItem) =>
+    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          欢迎回来，{user?.username}！
-        </Typography>
-        <Typography variant="body1" color="textSecondary" gutterBottom>
-          开始创建您的思维导图，整理和可视化您的想法。
-        </Typography>
-      </Box>
-
-      {/* 统计卡片 */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <MindMapIcon color="primary" sx={{ mr: 2 }} />
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    思维导图总数
-                  </Typography>
-                  <Typography variant="h5">
-                    {mindmaps.length}
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center">
-                <MindMapIcon color="secondary" sx={{ mr: 2 }} />
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    本周创建
-                  </Typography>
-                  <Typography variant="h5">
-                    {mindmaps.filter(m => {
-                      const weekAgo = new Date();
-                      weekAgo.setDate(weekAgo.getDate() - 7);
-                      return new Date(m.created_at) > weekAgo;
-                    }).length}
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* 快速操作 */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          快速操作
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item>
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-              disabled={isGenerating}
-            >
-              {isGenerating ? '生成中...' : '创建思维导图'}
-            </Button>
-          </Grid>
-        </Grid>
-      </Box>
-
-      {/* 正在生成的任务 */}
-      {hasGeneratingTasks && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h5" component="h2" gutterBottom>
-            正在生成中
-          </Typography>
-          <Grid container spacing={2}>
-            {currentGeneratingTasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
-                <Card sx={{ border: '2px solid', borderColor: 'primary.main' }}>
-                  <CardContent>
-                    <Box display="flex" alignItems="center" mb={2}>
-                      <CircularProgress size={24} sx={{ mr: 2 }} />
-                      <Typography variant="h6">
-                        {task.input_data?.topic || '生成中...'}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      {task.input_data?.description || '正在使用AI生成思维导图...'}
-                    </Typography>
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" color="textSecondary">
-                        进度: {Math.round(task.progress || 0)}%
-                      </Typography>
-                      <Box sx={{ width: '100%', mt: 1 }}>
-                        <div style={{
-                          width: '100%',
-                          height: '4px',
-                          backgroundColor: '#e0e0e0',
-                          borderRadius: '2px',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{
-                            width: `${task.progress || 0}%`,
-                            height: '100%',
-                            backgroundColor: '#1976d2',
-                            transition: 'width 0.3s ease'
-                          }} />
-                        </div>
-                      </Box>
-                    </Box>
-                    <Typography variant="caption" color="textSecondary" display="block" mt={1}>
-                      状态: {task.status === 'pending' ? '等待中' : task.status === 'running' ? '生成中' : task.status}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
 
       <Box sx={{ mb: 4 }}>
         <Typography variant="h5" component="h2" gutterBottom>
@@ -319,61 +266,85 @@ const MindMapList: React.FC = () => {
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
-      ) : filteredMindmaps.length > 0 ? (
+      ) : filteredItems.length > 0 ? (
         <Grid container spacing={3}>
-          {filteredMindmaps.map((mindmap) => (
-            <Grid item xs={12} sm={6} md={4} key={mindmap.id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {filteredItems.map((item: UnifiedItem) => (
+            <Grid item xs={12} sm={6} md={4} key={item.id}>
+              <Card sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                ...(item.isGenerating && { border: '2px solid', borderColor: 'primary.main' })
+              }}>
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                     <Typography variant="h6" component="h3" gutterBottom>
-                      {mindmap.title}
+                      {item.title}
                     </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, mindmap.id)}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
+                    {item.isGenerating ? (
+                      <Chip 
+                        label={getStatusText(item.status!)} 
+                        color={getStatusColor(item.status!) as any}
+                        size="small"
+                      />
+                    ) : (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, item.id)}
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
+                    )}
                   </Box>
                   
                   <Typography variant="body2" color="textSecondary" gutterBottom>
-                    {mindmap.description || '暂无描述'}
+                    {item.description}
                   </Typography>
                   
-                  <Box display="flex" alignItems="center" gap={1} mt={2}>
-                    <Chip
-                      icon={mindmap.is_public ? <PublicIcon /> : <PrivateIcon />}
-                      label={mindmap.is_public ? '公开' : '私有'}
-                      size="small"
-                      color={mindmap.is_public ? 'primary' : 'default'}
-                    />
-                    <Typography variant="caption" color="textSecondary">
-                      {mindmap.nodes.length} 个节点
-                    </Typography>
-                  </Box>
+                  {item.isGenerating ? (
+                     <Box display="flex" alignItems="center" mt={2}>
+                       <CircularProgress size={16} sx={{ mr: 1 }} />
+                       <Typography variant="caption" color="textSecondary">
+                         正在生成中...
+                       </Typography>
+                     </Box>
+                  ) : (
+                    <Box display="flex" alignItems="center" gap={1} mt={2}>
+                      <Chip
+                        icon={item.is_public ? <PublicIcon /> : <PrivateIcon />}
+                        label={item.is_public ? '公开' : '私有'}
+                        size="small"
+                        color={item.is_public ? 'primary' : 'default'}
+                      />
+                      <Typography variant="caption" color="textSecondary">
+                        {item.nodes?.length || 0} 个节点
+                      </Typography>
+                    </Box>
+                  )}
                   
                   <Typography variant="caption" color="textSecondary" display="block" mt={1}>
-                    创建于 {new Date(mindmap.created_at).toLocaleDateString()}
+                    创建于 {new Date(item.created_at).toLocaleDateString()}
                   </Typography>
                 </CardContent>
                 
-                <CardActions>
-                  <Button
-                    size="small"
-                    color="primary"
-                    onClick={() => navigate(`/mindmaps/${mindmap.id}`)}
-                  >
-                    打开
-                  </Button>
-                  <Button
-                    size="small"
-                    color="secondary"
-                    onClick={(e) => handleMenuOpen(e, mindmap.id)}
-                  >
-                    更多
-                  </Button>
-                </CardActions>
+                {!item.isGenerating && (
+                   <CardActions>
+                     <Button
+                       size="small"
+                       color="primary"
+                       onClick={() => navigate(`/mindmaps/${item.id}`)}
+                     >
+                       打开
+                     </Button>
+                     <Button
+                       size="small"
+                       color="secondary"
+                       onClick={(e) => handleMenuOpen(e, item.id)}
+                     >
+                       更多
+                     </Button>
+                   </CardActions>
+                 )}
               </Card>
             </Grid>
           ))}

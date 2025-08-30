@@ -3,6 +3,8 @@ import openai
 from typing import List, Dict, Any
 import json
 import uuid
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from models.mindmap import MindMapNode, MindMapEdge, GenerateMindMapRequest, NodeExpansionRequest
 
@@ -15,26 +17,32 @@ class LLMService:
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             base_url="https://api.deepseek.com"
         )
+        self.executor = ThreadPoolExecutor(max_workers=4)
     
     async def generate_mindmap(self, request: GenerateMindMapRequest) -> Dict[str, Any]:
         """根据主题生成思维导图"""
         try:
             prompt = self._create_mindmap_prompt(request)
             
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的思维导图生成助手。请根据用户提供的主题生成结构化的思维导图数据。返回的数据必须是有效的JSON格式。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0.7,
-                max_tokens=2000
+            # 在线程池中执行同步的OpenAI调用
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                self.executor,
+                lambda: self.client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "你是一个专业的思维导图生成助手。请根据用户提供的主题生成结构化的思维导图数据。返回的数据必须是有效的JSON格式。"
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=2000
+                )
             )
             
             content = response.choices[0].message.content
@@ -70,20 +78,25 @@ class LLMService:
             
             prompt = self._create_expansion_prompt(request, target_node)
             
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的思维导图扩展助手。请根据用户的要求为指定节点生成子节点。返回的数据必须是有效的JSON格式。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0.7,
-                max_tokens=1000
+            # 在线程池中执行同步的OpenAI调用
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                self.executor,
+                lambda: self.client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "你是一个专业的思维导图扩展助手。请根据用户的要求为指定节点生成子节点。返回的数据必须是有效的JSON格式。"
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=1000
+                )
             )
             
             content = response.choices[0].message.content

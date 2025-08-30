@@ -129,12 +129,17 @@ export interface ExpandNodeRequest {
 
 export interface Task {
   id: string;
+  title?: string;
+  description?: string;
   task_type: 'generate_mindmap' | 'expand_node';
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'restarting';
   progress: number;
   result?: any;
   error_message?: string;
   input_data: any;
+  task_definition?: any;
+  is_stoppable: boolean;
+  is_restartable: boolean;
   user_id: string;
   created_at: string;
   updated_at: string;
@@ -211,6 +216,18 @@ export const taskAPI = {
   
   createExpandNodeTask: (data: ExpandNodeRequest, currentNodes: any[]): Promise<AxiosResponse<TaskResponse>> =>
     api.post('/tasks/expand-node', { ...data, current_nodes: currentNodes }),
+  
+  stopTask: (taskId: string): Promise<AxiosResponse<{ message: string; task_id: string }>> =>
+    api.post(`/tasks/${taskId}/stop`),
+  
+  restartTask: (taskId: string): Promise<AxiosResponse<{ message: string; original_task_id: string; new_task_id: string }>> =>
+    api.post(`/tasks/${taskId}/restart`),
+
+  deleteTask: (taskId: string): Promise<AxiosResponse<{ message: string; task_id: string }>> =>
+    api.delete(`/tasks/${taskId}`),
 };
+
+// 为了向后兼容，保留旧的导出名称
+export const taskApi = taskAPI;
 
 export default api;

@@ -9,6 +9,8 @@ class TaskStatus(str, Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    STOPPED = "stopped"
+    RESTARTING = "restarting"
 
 class TaskType(str, Enum):
     GENERATE_MINDMAP = "generate_mindmap"
@@ -20,7 +22,7 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, values=None):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid objectid")
         return ObjectId(v)
@@ -37,6 +39,12 @@ class TaskBase(BaseModel):
     error_message: Optional[str] = None
     input_data: Dict[str, Any]
     user_id: str
+    title: Optional[str] = Field(None, description="任务标题")
+    description: Optional[str] = Field(None, description="任务描述")
+    task_definition: Optional[Dict[str, Any]] = Field(None, description="任务定义，包含执行任务所需的所有参数")
+    is_stoppable: bool = Field(default=True, description="任务是否可以停止")
+    is_restartable: bool = Field(default=True, description="任务是否可以重启")
+    deleted: bool = Field(default=False, description="逻辑删除标记")
 
 class TaskCreate(TaskBase):
     pass
@@ -46,9 +54,15 @@ class TaskUpdate(BaseModel):
     progress: Optional[int] = Field(None, ge=0, le=100)
     result: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    task_definition: Optional[Dict[str, Any]] = None
+    is_stoppable: Optional[bool] = None
+    is_restartable: Optional[bool] = None
+    deleted: Optional[bool] = None
 
 class Task(TaskBase):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[str] = Field(None, description="任务ID")
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None

@@ -14,6 +14,7 @@ import Register from './components/Auth/Register';
 import MindMapEditor from './components/MindMap/MindMapEditor';
 import MindMapList from './components/MindMap/MindMapList';
 import Profile from './components/Profile/Profile';
+import TaskList from './components/Tasks/TaskList';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
 // Import store types and actions
@@ -125,6 +126,7 @@ function App() {
             <Route index element={<Navigate to="/mindmaps" />} />
             <Route path="mindmaps" element={<MindMapList />} />
             <Route path="mindmaps/:id" element={<MindMapEditor />} />
+            <Route path="tasks" element={<TaskList />} />
             <Route path="profile" element={<Profile />} />
           </Route>
           

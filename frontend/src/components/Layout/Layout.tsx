@@ -20,8 +20,8 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-
   AccountTree as MindMapIcon,
+  Assignment as TaskIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
   LightMode as LightModeIcon,
@@ -70,6 +70,7 @@ const Layout: React.FC = () => {
 
   const menuItems = [
     { text: '思维导图', icon: <MindMapIcon />, path: '/mindmaps' },
+    { text: '任务管理', icon: <TaskIcon />, path: '/tasks' },
   ];
 
   const drawer = (
