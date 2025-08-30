@@ -36,7 +36,7 @@ import {
 } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 import { RootState, AppDispatch } from '../../store/store';
-import { fetchMindmaps, deleteMindmap, generateMindmap } from '../../store/slices/mindmapSlice';
+import { fetchMindmaps, deleteMindmap, generateMindmap, clearCompletedMindmapId } from '../../store/slices/mindmapSlice';
 import { addNotification } from '../../store/slices/uiSlice';
 
 interface CreateMindMapFormData {
@@ -47,9 +47,8 @@ interface CreateMindMapFormData {
 const MindMapList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { mindmaps, isLoading } = useSelector((state: RootState) => state.mindmap);
+  const { mindmaps, isLoading, isGenerating, generatingTasks, completedMindmapId } = useSelector((state: RootState) => state.mindmap);
   const { user } = useSelector((state: RootState) => state.auth);
-  const { isGenerating } = useSelector((state: RootState) => state.ui);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMindmapId, setSelectedMindmapId] = useState<string | null>(null);
@@ -67,6 +66,19 @@ const MindMapList: React.FC = () => {
   useEffect(() => {
     dispatch(fetchMindmaps());
   }, [dispatch]);
+
+  // 监听任务完成，自动导航到新创建的思维导图
+   useEffect(() => {
+     if (completedMindmapId) {
+       dispatch(addNotification({
+         type: 'success',
+         message: '思维导图创建成功！',
+       }));
+       navigate(`/mindmaps/${completedMindmapId}`);
+       // 清理完成状态
+       dispatch(clearCompletedMindmapId());
+     }
+   }, [completedMindmapId, dispatch, navigate]);
 
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
@@ -123,14 +135,13 @@ const MindMapList: React.FC = () => {
         style: 'default',
       })).unwrap();
       
-      if (result && (result as any).mindmap) {
+      if (result && (result as any).task_id) {
         dispatch(addNotification({
-          type: 'success',
-          message: '思维导图创建成功！',
+          type: 'info',
+          message: '思维导图生成任务已创建，正在后台处理中...',
         }));
         setCreateDialogOpen(false);
         reset();
-        navigate(`/mindmaps/${(result as any).mindmap.id}`);
       }
     } catch (error) {
       dispatch(addNotification({
@@ -139,6 +150,10 @@ const MindMapList: React.FC = () => {
       }));
     }
   };
+
+  // 获取当前正在生成的任务
+  const currentGeneratingTasks = Object.values(generatingTasks);
+  const hasGeneratingTasks = currentGeneratingTasks.length > 0;
 
   const handleShare = () => {
     // TODO: 实现分享功能
@@ -218,12 +233,65 @@ const MindMapList: React.FC = () => {
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={() => setCreateDialogOpen(true)}
+              disabled={isGenerating}
             >
-              创建思维导图
+              {isGenerating ? '生成中...' : '创建思维导图'}
             </Button>
           </Grid>
         </Grid>
       </Box>
+
+      {/* 正在生成的任务 */}
+      {hasGeneratingTasks && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            正在生成中
+          </Typography>
+          <Grid container spacing={2}>
+            {currentGeneratingTasks.map((task) => (
+              <Grid item xs={12} sm={6} md={4} key={task.id}>
+                <Card sx={{ border: '2px solid', borderColor: 'primary.main' }}>
+                  <CardContent>
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <CircularProgress size={24} sx={{ mr: 2 }} />
+                      <Typography variant="h6">
+                        {task.input_data?.topic || '生成中...'}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                      {task.input_data?.description || '正在使用AI生成思维导图...'}
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="caption" color="textSecondary">
+                        进度: {Math.round(task.progress || 0)}%
+                      </Typography>
+                      <Box sx={{ width: '100%', mt: 1 }}>
+                        <div style={{
+                          width: '100%',
+                          height: '4px',
+                          backgroundColor: '#e0e0e0',
+                          borderRadius: '2px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${task.progress || 0}%`,
+                            height: '100%',
+                            backgroundColor: '#1976d2',
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </div>
+                      </Box>
+                    </Box>
+                    <Typography variant="caption" color="textSecondary" display="block" mt={1}>
+                      状态: {task.status === 'pending' ? '等待中' : task.status === 'running' ? '生成中' : task.status}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
 
       <Box sx={{ mb: 4 }}>
         <Typography variant="h5" component="h2" gutterBottom>

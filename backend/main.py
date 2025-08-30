@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from routes.auth import router as auth_router
 from routes.mindmaps import router as mindmaps_router
 from routes.llm import router as llm_router
+from routes.tasks import router as tasks_router
 
 # 导入数据库连接
 from database import connect_to_mongo, close_mongo_connection
@@ -60,6 +61,7 @@ async def global_exception_handler(request, exc):
 app.include_router(auth_router, prefix="/api")
 app.include_router(mindmaps_router, prefix="/api")
 app.include_router(llm_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api/tasks")
 
 # 根路径
 @app.get("/")

@@ -1,5 +1,19 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { mindmapAPI, llmAPI } from '../../services/api';
+import { mindmapAPI, llmAPI, taskAPI } from '../../services/api';
+import type { Task, TaskResponse } from '../../services/api';
+
+interface GenerateMindMapRequest {
+  topic: string;
+  description?: string;
+  depth?: number;
+  style?: string;
+}
+
+interface ExpandNodeRequest {
+  node_id: string;
+  expansion_topic?: string;
+  max_new_nodes?: number;
+}
 
 interface CreateMindMapRequest {
   title: string;
@@ -48,7 +62,7 @@ export interface MindMap {
   version: number;
 }
 
-interface MindMapState {
+interface MindmapState {
   mindmaps: MindMap[];
   currentMindmap: MindMap | null;
   isLoading: boolean;
@@ -56,9 +70,11 @@ interface MindMapState {
   isGenerating: boolean;
   isExpanding: boolean;
   expandingNodeId: string | null;
+  generatingTasks: { [taskId: string]: Task };
+  completedMindmapId: string | null;
 }
 
-const initialState: MindMapState = {
+const initialState: MindmapState = {
   mindmaps: [],
   currentMindmap: null,
   isLoading: false,
@@ -66,6 +82,8 @@ const initialState: MindMapState = {
   isGenerating: false,
   isExpanding: false,
   expandingNodeId: null,
+  generatingTasks: {},
+  completedMindmapId: null,
 };
 
 // 异步actions
@@ -136,12 +154,43 @@ export const generateMindmap = createAsyncThunk(
     description?: string;
     depth?: number;
     style?: string;
-  }, { rejectWithValue }) => {
+  }, { rejectWithValue, dispatch }) => {
     try {
       const response = await llmAPI.generateMindmap(request);
-      return response.data;
+      const taskResponse: TaskResponse = response.data;
+      
+      // 开始轮询任务状态
+      dispatch(pollTaskStatus(taskResponse.task_id));
+      
+      return taskResponse;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || '生成思维导图失败');
+    }
+  }
+);
+
+export const pollTaskStatus = createAsyncThunk(
+  'mindmap/pollTaskStatus',
+  async (taskId: string, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await taskAPI.getTask(taskId);
+      const task: Task = response.data;
+      
+      if (task.status === 'completed') {
+        // 任务完成，停止轮询
+        return task;
+      } else if (task.status === 'failed') {
+        // 任务失败
+        return rejectWithValue(task.error_message || '任务执行失败');
+      } else {
+        // 任务仍在进行中，继续轮询
+        setTimeout(() => {
+          dispatch(pollTaskStatus(taskId));
+        }, 2000); // 每2秒轮询一次
+        return task;
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || '获取任务状态失败');
     }
   }
 );
@@ -199,6 +248,9 @@ const mindmapSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearCompletedMindmapId: (state) => {
+      state.completedMindmapId = null;
     },
   },
   extraReducers: (builder) => {
@@ -285,14 +337,45 @@ const mindmapSlice = createSlice({
         state.error = null;
       })
       .addCase(generateMindmap.fulfilled, (state, action) => {
-        state.isGenerating = false;
-        const payload = action.payload as any;
-        if (payload && payload.mindmap) {
-          state.mindmaps.push(payload.mindmap);
-          state.currentMindmap = payload.mindmap;
+        const taskResponse = action.payload as any;
+        if (taskResponse && taskResponse.task_id) {
+          state.generatingTasks[taskResponse.task_id] = {
+            id: taskResponse.task_id,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          } as Task;
         }
       })
       .addCase(generateMindmap.rejected, (state, action) => {
+        state.isGenerating = false;
+        state.error = action.payload as string;
+      })
+      // Poll task status
+       .addCase(pollTaskStatus.fulfilled, (state, action) => {
+         const task = action.payload as any;
+         if (task && task.id) {
+           state.generatingTasks[task.id] = task;
+           
+           if (task.status === 'completed') {
+             state.isGenerating = false;
+             if (task.result && task.result.mindmap) {
+               state.mindmaps.push(task.result.mindmap);
+               state.currentMindmap = task.result.mindmap;
+               // 存储完成的思维导图ID，供组件使用
+                state.completedMindmapId = task.result.mindmap.id;
+             }
+             // 清理已完成的任务
+             delete state.generatingTasks[task.id];
+           } else if (task.status === 'failed') {
+             state.isGenerating = false;
+             state.error = task.error_message || '任务执行失败';
+             // 清理失败的任务
+             delete state.generatingTasks[task.id];
+           }
+         }
+       })
+      .addCase(pollTaskStatus.rejected, (state, action) => {
         state.isGenerating = false;
         state.error = action.payload as string;
       })
@@ -327,6 +410,7 @@ export const {
   updateCurrentMindmapEdges,
   addNodesToCurrentMindmap,
   clearError,
+  clearCompletedMindmapId,
 } = mindmapSlice.actions;
 
 export default mindmapSlice.reducer;

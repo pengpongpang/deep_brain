@@ -127,6 +127,26 @@ export interface ExpandNodeRequest {
   max_new_nodes?: number;
 }
 
+export interface Task {
+  id: string;
+  task_type: 'generate_mindmap' | 'expand_node';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  result?: any;
+  error_message?: string;
+  input_data: any;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+}
+
+export interface TaskResponse {
+  task_id: string;
+  message: string;
+  status_url?: string;
+}
+
 // 认证API
 export const authAPI = {
   login: (data: LoginRequest): Promise<AxiosResponse<LoginResponse>> =>
@@ -165,7 +185,7 @@ export const mindmapAPI = {
 
 // LLM API
 export const llmAPI = {
-  generateMindmap: (data: GenerateMindMapRequest): Promise<AxiosResponse<MindMap>> =>
+  generateMindmap: (data: GenerateMindMapRequest): Promise<AxiosResponse<TaskResponse>> =>
     api.post('/llm/generate-mindmap', data),
   
   expandNode: (mindmapId: string, data: ExpandNodeRequest): Promise<AxiosResponse<MindMap>> =>
@@ -176,6 +196,21 @@ export const llmAPI = {
   
   getUsageStats: (): Promise<AxiosResponse<{ mindmaps_created: number }>> =>
     api.get('/llm/usage-stats'),
+};
+
+// 任务API
+export const taskAPI = {
+  getTask: (taskId: string): Promise<AxiosResponse<Task>> =>
+    api.get(`/tasks/${taskId}`),
+  
+  getUserTasks: (limit?: number): Promise<AxiosResponse<Task[]>> =>
+    api.get(`/tasks${limit ? `?limit=${limit}` : ''}`),
+  
+  createGenerateMindmapTask: (data: GenerateMindMapRequest): Promise<AxiosResponse<TaskResponse>> =>
+    api.post('/tasks/generate-mindmap', data),
+  
+  createExpandNodeTask: (data: ExpandNodeRequest, currentNodes: any[]): Promise<AxiosResponse<TaskResponse>> =>
+    api.post('/tasks/expand-node', { ...data, current_nodes: currentNodes }),
 };
 
 export default api;

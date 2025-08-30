@@ -3,6 +3,8 @@ from models.mindmap import GenerateMindMapRequest, NodeExpansionRequest, MindMap
 from models.user import User
 from utils.auth import get_current_active_user
 from services.llm_service import llm_service
+from services.task_service import task_service
+from models.task import TaskCreate, TaskType
 from database import get_mindmaps_collection
 from bson import ObjectId
 from datetime import datetime
@@ -15,42 +17,27 @@ async def generate_mindmap(
     request: GenerateMindMapRequest,
     current_user: User = Depends(get_current_active_user)
 ):
-    """使用LLM生成思维导图"""
+    """创建思维导图生成任务（异步）"""
     try:
-        # 调用LLM服务生成思维导图
-        mindmap_data = await llm_service.generate_mindmap(request)
+        task_data = TaskCreate(
+            task_type=TaskType.GENERATE_MINDMAP,
+            input_data=request.dict(),
+            user_id=str(current_user.id)
+        )
         
-        # 自动保存生成的思维导图
-        mindmaps_collection = await get_mindmaps_collection()
-        
-        mindmap_dict = {
-            "title": mindmap_data["title"],
-            "description": mindmap_data["description"],
-            "nodes": mindmap_data["nodes"],
-            "edges": mindmap_data["edges"],
-            "layout": "hierarchical",
-            "theme": "default",
-            "is_public": False,
-            "user_id": ObjectId(current_user.id),
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-            "version": 1
-        }
-        
-        result = await mindmaps_collection.insert_one(mindmap_dict)
-        mindmap_data["id"] = str(result.inserted_id)
+        task_id = await task_service.create_task(task_data)
         
         return {
-            "success": True,
-            "mindmap": mindmap_data,
-            "message": "思维导图生成成功"
+            "task_id": task_id,
+            "message": "思维导图生成任务已创建，请轮询任务状态",
+            "status_url": f"/api/tasks/{task_id}"
         }
         
     except Exception as e:
         print(f"Error in generate_mindmap: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="生成思维导图时发生错误"
+            detail="创建任务失败"
         )
 
 @router.post("/expand-node/{mindmap_id}")

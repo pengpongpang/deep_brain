@@ -12,7 +12,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 class LLMService:
     def __init__(self):
         self.client = openai.OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com"
         )
     
     async def generate_mindmap(self, request: GenerateMindMapRequest) -> Dict[str, Any]:
@@ -21,7 +22,7 @@ class LLMService:
             prompt = self._create_mindmap_prompt(request)
             
             response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="deepseek-chat",
                 messages=[
                     {
                         "role": "system",
@@ -70,7 +71,7 @@ class LLMService:
             prompt = self._create_expansion_prompt(request, target_node)
             
             response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="deepseek-chat",
                 messages=[
                     {
                         "role": "system",
@@ -190,6 +191,7 @@ class LLMService:
             "data": {
                 "label": mindmap_data.get("central_topic", "主题"),
                 "level": 0,
+                "parent_id": None,
                 "isRoot": True
             },
             "style": {
@@ -236,7 +238,9 @@ class LLMService:
             "position": {"x": x, "y": y},
             "data": {
                 "label": branch.get("label", f"节点{branch_index + 1}"),
-                "level": level
+                "level": level,
+                "parent_id": parent_id,
+                "isRoot": False
             },
             "style": {
                 "background": color,
@@ -298,7 +302,9 @@ class LLMService:
                 "data": {
                     "label": child.get("label", f"新节点{i + 1}"),
                     "description": child.get("description", ""),
-                    "level": parent_level + 1
+                    "level": parent_level + 1,
+                    "parent_id": parent_node["id"],
+                    "isRoot": False
                 },
                 "style": {
                     "background": color,
@@ -331,6 +337,7 @@ class LLMService:
             "data": {
                 "label": topic,
                 "level": 0,
+                "parent_id": None,
                 "isRoot": True
             },
             "style": {
