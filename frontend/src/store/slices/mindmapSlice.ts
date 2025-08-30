@@ -249,7 +249,7 @@ export const expandNode = createAsyncThunk(
       const response = await taskAPI.createExpandNodeTask({
         node_id: nodeId,
         expansion_topic: expansionPrompt,
-        max_new_nodes: maxChildren || 5
+        max_new_nodes: maxChildren || 15
       }, pathNodes);
       
       return {

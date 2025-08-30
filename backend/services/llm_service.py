@@ -46,7 +46,10 @@ class LLMService:
             )
             
             content = response.choices[0].message.content
-            mindmap_data = json.loads(content)
+            
+            # 提取JSON内容（处理markdown格式包裹的情况）
+            json_content = self._extract_json_from_content(content)
+            mindmap_data = json.loads(json_content)
             
             # 转换为标准格式
             nodes, edges = self._convert_to_react_flow_format(mindmap_data)
@@ -101,7 +104,12 @@ class LLMService:
             )
             
             content = response.choices[0].message.content
-            expansion_data = json.loads(content)
+            print("content: ")
+            print(content)
+            
+            # 提取JSON内容（处理markdown格式包裹的情况）
+            json_content = self._extract_json_from_content(content)
+            expansion_data = json.loads(json_content)
             
             # 生成新节点和边
             new_nodes, new_edges = self._create_expansion_nodes(
@@ -116,6 +124,36 @@ class LLMService:
         except Exception as e:
             print(f"Error expanding node: {e}")
             return {"nodes": [], "edges": []}
+    
+    def _extract_json_from_content(self, content: str) -> str:
+        """从内容中提取JSON字符串，处理markdown格式包裹的情况"""
+        import re
+        
+        # 去除首尾空白
+        content = content.strip()
+        
+        # 尝试匹配markdown代码块中的JSON
+        json_pattern = r'```(?:json)?\s*([\s\S]*?)```'
+        match = re.search(json_pattern, content, re.IGNORECASE)
+        
+        if match:
+            # 提取代码块中的内容
+            json_content = match.group(1).strip()
+            print(f"Extracted JSON from markdown: {json_content}")
+            return json_content
+        
+        # 如果没有找到markdown格式，尝试查找纯JSON（以{开头，以}结尾）
+        json_start = content.find('{')
+        json_end = content.rfind('}') + 1
+        
+        if json_start != -1 and json_end > json_start:
+            json_content = content[json_start:json_end]
+            print(f"Extracted JSON from content: {json_content}")
+            return json_content
+        
+        # 如果都没找到，返回原内容
+        print("No JSON pattern found, returning original content")
+        return content
     
     def _create_mindmap_prompt(self, request: GenerateMindMapRequest) -> str:
         """创建思维导图生成提示"""
@@ -179,6 +217,7 @@ class LLMService:
             for i, node in enumerate(current_nodes):
                 node_data = node.get('data', {})
                 node_label = node_data.get('label', '未知节点')
+                node_content = node_data.get('content', '')
                 indent = "  " * i
                 if i == len(current_nodes) - 1:
                     hierarchy_info += f"{indent}└─ {node_label}：{node_content} ← 当前要扩展的节点\n"

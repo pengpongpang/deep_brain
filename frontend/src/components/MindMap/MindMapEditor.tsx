@@ -415,7 +415,7 @@ const MindMapEditor: React.FC = () => {
         mindmapId: id!,
         nodeId: nodeToExpand,
         expansionPrompt: expansionTopic || '',
-        maxChildren: 5,
+        maxChildren: 15,
         currentNodes: currentMindmap.nodes,
         currentEdges: currentMindmap.edges,
       })).unwrap();

@@ -75,7 +75,7 @@ class NodeExpansionRequest(BaseModel):
     node_id: str
     expansion_topic: str
     context: Optional[str] = None
-    max_children: int = Field(default=5, ge=1, le=10)
+    max_children: int = Field(default=15, ge=1, le=20)
 
 class ExpandNodeTaskRequest(BaseModel):
     request: NodeExpansionRequest
