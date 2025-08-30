@@ -117,9 +117,18 @@ const MindMapEditor: React.FC = () => {
       const nodesToProcess = currentMindmap.nodes || [];
       const edgesToProcess = currentMindmap.edges || [];
       console.log('Initializing store with:', nodesToProcess.length, 'nodes and', edgesToProcess.length, 'edges');
-      initializeData(nodesToProcess, edgesToProcess);
+      
+      // 检查是否有折叠状态需要保持（当有扩展任务正在进行时）
+      const hasExpandingTasks = Object.keys(expandingTasks).length > 0;
+      // 直接从 store 获取当前折叠状态，避免依赖循环
+      const currentCollapsedNodes = useMindmapStore.getState().collapsedNodes;
+      const shouldPreserveCollapsedState = hasExpandingTasks || currentCollapsedNodes.size > 0;
+      
+      // 初始化数据，根据情况决定是否保持折叠状态
+      initializeData(nodesToProcess, edgesToProcess, shouldPreserveCollapsedState);
     }
-  }, [currentMindmap, initializeData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMindmap, expandingTasks]);
   
   // 收折展开处理
   const handleToggleCollapse = useCallback((nodeId: string) => {

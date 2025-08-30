@@ -43,7 +43,7 @@ interface MindmapState {
   hasUnsavedChanges: boolean;
   
   // 操作方法
-  initializeData: (nodes: CustomNode[], edges: Edge[]) => void;
+  initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => void;
   toggleCollapse: (nodeId: string) => void;
   addNode: (node: CustomNode, parentId?: string) => void;
   updateNode: (nodeId: string, data: Partial<NodeData>) => void;
@@ -154,12 +154,14 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
   hasUnsavedChanges: false,
 
   // 初始化数据
-  initializeData: (nodes: CustomNode[], edges: Edge[]) => {
+  initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => {
     console.log('Store: Initializing data with', nodes.length, 'nodes and', edges.length, 'edges');
+    const { collapsedNodes: currentCollapsedNodes } = get();
+    
     set({
       rawNodes: nodes,
       rawEdges: edges,
-      collapsedNodes: new Set<string>(),
+      collapsedNodes: preserveCollapsedState ? currentCollapsedNodes : new Set<string>(),
       hasUnsavedChanges: false,
     });
     get().updateVisibleData();
