@@ -75,21 +75,37 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
   // 计算每个节点的位置
   const nodePositions = new Map<string, { x: number; y: number }>();
   const levelWidth = 250; // 增加层级间距
-  const minNodeSpacing = 120; // 最小节点间距
-  const nodeHeight = 80; // 节点高度
+  const minLeafSpacing = 25; // 叶子节点最小间距（约1-2个字符高度）
+  const minBranchSpacing = 80; // 有子节点的节点最小间距
+  
+  // 动态计算节点高度的函数
+  const calculateNodeHeight = (node: CustomNode): number => {
+    const baseHeight = 60; // 基础高度
+    const labelHeight = 20; // 标题行高度
+    const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 25) * 15 : 0; // 内容高度估算
+    const padding = 24; // 上下内边距
+    return Math.max(baseHeight, labelHeight + contentHeight + padding);
+  };
 
   // 计算子树高度的函数
   const calculateSubtreeHeight = (nodeId: string): number => {
+    const node = nodes.find(n => n.id === nodeId);
     const children = nodes.filter(node => node.data?.parent_id === nodeId);
-    if (children.length === 0) return nodeHeight;
     
+    if (children.length === 0) {
+      // 叶子节点：返回节点自身的高度加上小间距
+      const nodeHeight = node ? calculateNodeHeight(node) : 60;
+      return nodeHeight + minLeafSpacing;
+    }
+    
+    // 有子节点：计算所有子节点的子树高度总和
     let totalHeight = 0;
     children.forEach(child => {
       totalHeight += calculateSubtreeHeight(child.id);
     });
     
-    // 确保子树高度至少等于子节点数量 * 最小间距
-    return Math.max(totalHeight, children.length * minNodeSpacing);
+    // 确保有子节点的分支有足够间距
+    return Math.max(totalHeight, children.length * minBranchSpacing);
   };
 
   // 处理根节点
@@ -108,17 +124,25 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
 
     // 计算每个子节点的子树高度
     const childHeights = children.map(child => calculateSubtreeHeight(child.id));
-    const totalHeight = childHeights.reduce((sum, height) => sum + height, 0);
+    
+    // 根据节点类型调整间距
+    const adjustedHeights = childHeights.map((height, index) => {
+      const child = children[index];
+      const hasChildren = nodes.some(node => node.data?.parent_id === child.id);
+      const minSpacing = hasChildren ? minBranchSpacing : minLeafSpacing;
+      return Math.max(height, minSpacing);
+    });
+    const totalHeight = adjustedHeights.reduce((sum, height) => sum + height, 0);
     
     // 计算起始Y位置，使子节点居中分布
     let currentY = parentPos.y - totalHeight / 2;
     
     children.forEach((child, index) => {
       const x = parentPos.x + levelWidth;
-      const childHeight = childHeights[index];
+      const adjustedHeight = adjustedHeights[index];
       
-      // 将节点放在其子树高度的中心
-      const y = currentY + childHeight / 2;
+      // 将节点放在其调整后子树高度的中心
+      const y = currentY + adjustedHeight / 2;
       
       nodePositions.set(child.id, { x, y });
       
@@ -126,11 +150,68 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
       processChildren(child.id, level + 1);
       
       // 移动到下一个子节点的位置
-      currentY += childHeight;
+      currentY += adjustedHeight;
     });
   };
 
   processChildren(rootNode.id, 1);
+
+  // 全局重叠检测和调整
+  const resolveOverlaps = () => {
+    type LevelNode = { id: string; y: number; height: number };
+    const nodesByLevel = new Map<number, LevelNode[]>();
+    
+    // 按层级分组节点
+    nodes.forEach(node => {
+      const position = nodePositions.get(node.id);
+      if (position) {
+        const level = Math.round(position.x / levelWidth);
+        const height = calculateNodeHeight(node);
+        
+        if (!nodesByLevel.has(level)) {
+          nodesByLevel.set(level, []);
+        }
+        nodesByLevel.get(level)!.push({
+          id: node.id,
+          y: position.y,
+          height: height
+        });
+      }
+    });
+    
+    // 检查每个层级的重叠并调整
+    nodesByLevel.forEach((levelNodes, level) => {
+      if (levelNodes.length <= 1) return;
+      
+      // 按Y坐标排序
+      levelNodes.sort((a, b) => a.y - b.y);
+      
+      // 检测和解决重叠
+      for (let i = 1; i < levelNodes.length; i++) {
+        const current = levelNodes[i];
+        const previous = levelNodes[i - 1];
+        
+        const previousBottom = previous.y + previous.height / 2;
+        const currentTop = current.y - current.height / 2;
+        const minGap = 10; // 最小间隙
+        
+        if (currentTop < previousBottom + minGap) {
+          // 发生重叠，向下调整当前节点
+          const adjustment = previousBottom + minGap + current.height / 2 - current.y;
+          current.y += adjustment;
+          
+          // 更新位置映射
+          const currentPos = nodePositions.get(current.id);
+          if (currentPos) {
+            nodePositions.set(current.id, { x: currentPos.x, y: current.y });
+          }
+        }
+      }
+    });
+  };
+  
+  // 执行重叠检测和调整
+  resolveOverlaps();
 
   // 应用位置到节点
   return nodes.map(node => {
