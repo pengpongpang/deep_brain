@@ -41,7 +41,7 @@ class LLMService:
                         }
                     ],
                     temperature=0.7,
-                    max_tokens=2000
+                    max_tokens=4000
                 )
             )
             
@@ -99,7 +99,7 @@ class LLMService:
                         }
                     ],
                     temperature=0.7,
-                    max_tokens=1000
+                    max_tokens=3000
                 )
             )
             
@@ -231,7 +231,7 @@ class LLMService:
             hierarchy_info = f"当前思维导图只有根节点：{node_label}：{node_content}\n"
         
         prompt = f"""
-请扩展思维导图节点，生成最多不超过{request.max_children}个子节点。
+请扩展思维导图节点，生成一个包含两层的完整树结构。第一层生成最多不超过{min(request.max_children, 8)}个子节点，每个第一层子节点再生成2-4个第二层子节点。
 下面是当前思维导图分支的结构：
 {hierarchy_info}
 
@@ -242,22 +242,42 @@ class LLMService:
 {{
   "children": [
     {{
-      "label": "子节点标题1",
-      "content": "子节点的精炼内容描述1（10-25字）",
-      "description": "子节点描述1"
+      "label": "第一层子节点标题1",
+      "content": "精简描述（5-15字）",
+      "description": "第一层子节点简要描述",
+      "children": [
+        {{
+          "label": "第二层子节点标题1-1",
+          "content": "详尽的内容描述（20-50字）",
+          "description": "第二层子节点的详细描述，包含具体信息和要点"
+        }},
+        {{
+          "label": "第二层子节点标题1-2",
+          "content": "详尽的内容描述（20-50字）",
+          "description": "第二层子节点的详细描述，包含具体信息和要点"
+        }}
+      ]
     }},
     {{
-      "label": "子节点标题2",
-      "content": "子节点的精炼内容描述2（10-25字）",
-      "description": "子节点描述2"
+      "label": "第一层子节点标题2",
+      "content": "精简描述（5-15字）",
+      "description": "第一层子节点简要描述",
+      "children": [
+        {{
+          "label": "第二层子节点标题2-1",
+          "content": "详尽的内容描述（20-50字）",
+          "description": "第二层子节点的详细描述，包含具体信息和要点"
+        }}
+      ]
     }}
   ]
 }}
 
 要求：
-1. 生成的子节点要与父节点相关，并考虑整个层级结构的逻辑关系
-2. 每个子节点都必须包含标题和精炼的内容描述
-3. 标题简洁，内容补充说明或展开要点
+1. 第一层子节点：标题和内容描述要精简，作为分类或概括性节点
+2. 第二层子节点：内容描述要详尽，包含具体的信息、要点或实施细节
+3. 每个第一层子节点必须包含2-4个第二层子节点
+4. 整体结构要逻辑清晰，层次分明
 4. 内容要有逻辑性和实用性，符合思维导图的层级逻辑
 5. 确保JSON格式正确
 """
@@ -361,7 +381,7 @@ class LLMService:
                 )
     
     def _create_expansion_nodes(self, parent_node: Dict, expansion_data: Dict, max_children: int) -> tuple:
-        """创建扩展节点"""
+        """创建扩展节点，支持两层嵌套结构"""
         import math
         
         new_nodes = []
@@ -371,21 +391,24 @@ class LLMService:
         parent_pos = parent_node.get("position", {"x": 400, "y": 200})
         parent_level = parent_node.get("data", {}).get("level", 0)
         
-        # 计算子节点位置
-        angle_step = 60 / max(len(children), 1)
-        radius = 120
+        # 第一层子节点的布局参数
+        first_level_angle_step = 60 / max(len(children), 1)
+        first_level_radius = 150
         
         colors = ["#4ecdc4", "#45b7d1", "#96ceb4", "#feca57", "#ff9ff3"]
-        color = colors[min(parent_level, len(colors) - 1)]
+        first_level_color = colors[min(parent_level, len(colors) - 1)]
+        second_level_color = colors[min(parent_level + 1, len(colors) - 1)]
         
         for i, child in enumerate(children):
-            angle = math.radians((i - len(children) / 2) * angle_step)
-            x = parent_pos["x"] + radius * math.cos(angle)
-            y = parent_pos["y"] + radius * math.sin(angle)
+            # 创建第一层子节点
+            angle = math.radians((i - len(children) / 2) * first_level_angle_step)
+            x = parent_pos["x"] + first_level_radius * math.cos(angle)
+            y = parent_pos["y"] + first_level_radius * math.sin(angle)
             
             child_id = str(uuid.uuid4())
             
-            new_nodes.append({
+            # 第一层子节点
+            first_level_node = {
                 "id": child_id,
                 "type": "custom",
                 "position": {"x": x, "y": y},
@@ -398,22 +421,73 @@ class LLMService:
                     "isRoot": False
                 },
                 "style": {
-                    "background": color,
+                    "background": first_level_color,
                     "color": "white",
-                    "border": f"2px solid {color}",
+                    "border": f"2px solid {first_level_color}",
                     "borderRadius": "8px",
                     "fontSize": "12px"
                 }
-            })
+            }
             
+            new_nodes.append(first_level_node)
+            
+            # 第一层到父节点的连接
             new_edges.append({
                 "id": f"edge-{parent_node['id']}-{child_id}",
                 "source": parent_node["id"],
                 "target": child_id,
                 "type": "smoothstep",
                 "animated": True,
-                "style": {"stroke": color, "strokeWidth": 2}
+                "style": {"stroke": first_level_color, "strokeWidth": 2}
             })
+            
+            # 处理第二层子节点
+            second_level_children = child.get("children", [])
+            if second_level_children:
+                second_level_angle_step = 45 / max(len(second_level_children), 1)
+                second_level_radius = 100
+                
+                for j, grandchild in enumerate(second_level_children):
+                    # 计算第二层子节点位置（围绕第一层子节点分布）
+                    second_angle = math.radians((j - len(second_level_children) / 2) * second_level_angle_step + angle * 180 / math.pi)
+                    second_x = x + second_level_radius * math.cos(second_angle)
+                    second_y = y + second_level_radius * math.sin(second_angle)
+                    
+                    grandchild_id = str(uuid.uuid4())
+                    
+                    # 第二层子节点
+                    second_level_node = {
+                        "id": grandchild_id,
+                        "type": "custom",
+                        "position": {"x": second_x, "y": second_y},
+                        "data": {
+                            "label": grandchild.get("label", f"子节点{i + 1}-{j + 1}"),
+                            "content": grandchild.get("content", ""),
+                            "description": grandchild.get("description", grandchild.get("content", "")),
+                            "level": parent_level + 2,
+                            "parent_id": child_id,
+                            "isRoot": False
+                        },
+                        "style": {
+                            "background": second_level_color,
+                            "color": "white",
+                            "border": f"2px solid {second_level_color}",
+                            "borderRadius": "8px",
+                            "fontSize": "11px"
+                        }
+                    }
+                    
+                    new_nodes.append(second_level_node)
+                    
+                    # 第二层到第一层的连接
+                    new_edges.append({
+                        "id": f"edge-{child_id}-{grandchild_id}",
+                        "source": child_id,
+                        "target": grandchild_id,
+                        "type": "smoothstep",
+                        "animated": True,
+                        "style": {"stroke": second_level_color, "strokeWidth": 1.5}
+                    })
         
         return new_nodes, new_edges
     
