@@ -42,6 +42,8 @@ import ReactFlow, {
   NodeChange,
   ReactFlowProvider,
   useReactFlow,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CustomNodeComponent from './CustomNode';
@@ -96,6 +98,10 @@ const MindMapEditor: React.FC = () => {
   const [newNodeDescription, setNewNodeDescription] = useState('');
   const [parentNodeForNewNode, setParentNodeForNewNode] = useState<string | null>(null);
   const [settingsMenuAnchor, setSettingsMenuAnchor] = useState<null | HTMLElement>(null);
+  
+  // 本地状态管理nodes和edges以支持拖拽
+  const [localNodes, setLocalNodes] = useState<Node[]>([]);
+  const [localEdges, setLocalEdges] = useState<Edge[]>([]);
 
   // 加载思维导图数据
   useEffect(() => {
@@ -121,6 +127,23 @@ const MindMapEditor: React.FC = () => {
     toggleCollapse(nodeId);
     console.log('=== TOGGLE COLLAPSE END ===');
   }, [toggleCollapse]);
+  
+  // 同步store中的数据到本地状态
+  useEffect(() => {
+    const nodesWithCallbacks = visibleNodes.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        onEdit: handleEditNode,
+        onDelete: handleDeleteNode,
+        onAddChild: handleAddNode,
+        onExpand: handleExpandNode,
+        onToggleCollapse: handleToggleCollapse,
+      },
+    }));
+    setLocalNodes(nodesWithCallbacks);
+    setLocalEdges(edges);
+  }, [visibleNodes, edges, handleToggleCollapse]);
 
   // 编辑节点
   const handleEditNode = (nodeId: string) => {
@@ -215,18 +238,100 @@ const MindMapEditor: React.FC = () => {
   // 处理节点变化
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // 这里可以处理节点位置变化等
-      console.log('Nodes changed:', changes);
+      console.log('=== onNodesChange 触发 ===');
+      console.log('所有变化:', JSON.stringify(changes, null, 2));
+      
+      // 正常处理所有节点变化，不在这里处理拖拽排序
+      setLocalNodes((nds) => applyNodeChanges(changes, nds));
+      setHasUnsavedChanges(true);
     },
-    []
+    [setHasUnsavedChanges]
+  );
+  
+  // 处理拖拽结束事件
+  const onNodeDragStop = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      console.log('=== 拖拽结束事件触发 ===');
+      console.log('拖拽的节点:', node.data.label);
+      console.log('最终位置:', node.position);
+      
+      const draggedNode = localNodes.find(n => n.id === node.id);
+      if (!draggedNode) {
+        console.log('未找到拖拽节点');
+        return;
+      }
+      
+      // 获取同级节点
+      const siblings = localNodes.filter(n => 
+        n.data.parent_id === draggedNode.data.parent_id && 
+        n.id !== draggedNode.id
+      );
+      
+      console.log('拖拽节点的父节点ID:', draggedNode.data.parent_id);
+      console.log('找到的同级节点数量:', siblings.length);
+      console.log('同级节点列表:', siblings.map(s => ({ id: s.id, label: s.data.label, y: s.position?.y })));
+      
+      if (siblings.length === 0) {
+        console.log('没有同级节点，无需排序');
+        return;
+      }
+      
+      // 根据Y坐标排序同级节点
+      const allSiblings = [...siblings, { ...draggedNode, position: node.position }];
+      allSiblings.sort((a, b) => (a.position?.y || 0) - (b.position?.y || 0));
+      
+      console.log('排序前同级节点:', allSiblings.map(s => ({ label: s.data.label, y: s.position?.y })));
+      
+      // 重新计算位置
+      const VERTICAL_SPACING = 100;
+      const startY = allSiblings[0].position?.y || 0;
+      
+      const updatedNodes = allSiblings.map((sibling, index) => {
+        const newY = startY + index * VERTICAL_SPACING;
+        console.log(`节点 ${sibling.data.label} 新Y坐标: ${newY}`);
+        return {
+          ...sibling,
+          position: {
+            x: sibling.position?.x || 0,
+            y: newY,
+          },
+          data: {
+            ...sibling.data,
+            order: index,
+          },
+        };
+      });
+      
+      console.log('排序后同级节点:', updatedNodes.map(s => ({ label: s.data.label, y: s.position?.y, order: s.data.order })));
+      
+      // 更新本地节点状态
+      setLocalNodes(prevNodes => {
+        const nodeMap = new Map(updatedNodes.map(node => [node.id, node]));
+        return prevNodes.map(node => nodeMap.get(node.id) || node);
+      });
+      
+      console.log('本地节点状态已更新');
+      
+      // 同步更新store中的order属性
+      allSiblings.forEach((sibling, index) => {
+        console.log(`更新store节点 ${sibling.data.label} order为 ${index}`);
+        updateNode(sibling.id, { order: index });
+      });
+      
+      setHasUnsavedChanges(true);
+      console.log('=== 拖拽排序处理完成 ===');
+    },
+    [localNodes, updateNode, setHasUnsavedChanges]
   );
 
   // 处理边变化
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       console.log('Edges changed:', changes);
+      setLocalEdges((eds) => applyEdgeChanges(changes, eds));
+      setHasUnsavedChanges(true);
     },
-    []
+    [setHasUnsavedChanges]
   );
 
   // 处理连接
@@ -237,29 +342,13 @@ const MindMapEditor: React.FC = () => {
     []
   );
 
-  // 处理节点点击
-  const handleNodeClick = (event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
-  };
-
   // 处理节点双击
   const handleNodeDoubleClick = (event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
     setEditDialogOpen(true);
   };
 
-  // 为节点添加回调函数
-  const nodes = visibleNodes.map(node => ({
-    ...node,
-    data: {
-      ...node.data,
-      onEdit: handleEditNode,
-      onDelete: handleDeleteNode,
-      onAddChild: handleAddNode,
-      onExpand: handleExpandNode,
-      onToggleCollapse: handleToggleCollapse,
-    },
-  }));
+  // 节点已经在useEffect中处理了回调函数
 
   // 保存
   const handleSave = async () => {
@@ -386,10 +475,6 @@ const MindMapEditor: React.FC = () => {
             保存
           </Button>
           
-          <IconButton onClick={() => handleAddNode()}>
-            <AddIcon />
-          </IconButton>
-          
           <IconButton
             onClick={() => handleDeleteNode()}
             disabled={!selectedNode}
@@ -408,14 +493,15 @@ const MindMapEditor: React.FC = () => {
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
         <ReactFlowProvider>
           <ReactFlow
-            nodes={nodes}
-            edges={edges}
+            nodes={localNodes}
+            edges={localEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
+            onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes}
+            nodesDraggable={true}
             fitView
             attributionPosition="bottom-left"
           >
@@ -424,22 +510,7 @@ const MindMapEditor: React.FC = () => {
           </ReactFlow>
         </ReactFlowProvider>
         
-        {/* AI扩展按钮 */}
-        {selectedNode && (
-          <Fab
-            color="secondary"
-            size="small"
-            sx={{
-              position: 'absolute',
-              bottom: 80,
-              right: 16,
-            }}
-            onClick={() => handleExpandNode(selectedNode.id)}
-            disabled={expandingNodeId === selectedNode.id}
-          >
-            <AIIcon />
-          </Fab>
-        )}
+
       </Box>
 
       {/* 编辑节点对话框 */}
