@@ -237,18 +237,44 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     get().updateVisibleData();
   },
 
-  // 删除节点
+  // 删除节点（级联删除子节点）
   deleteNode: (nodeId: string) => {
     console.log('Store: Deleting node', nodeId);
-    const { rawNodes, rawEdges } = get();
-    const updatedNodes = rawNodes.filter(node => node.id !== nodeId);
+    const { rawNodes, rawEdges, collapsedNodes } = get();
+    
+    // 递归获取所有需要删除的节点（包括子节点）
+    const getNodesToDelete = (targetNodeId: string): string[] => {
+      const nodesToDelete = [targetNodeId];
+      const children = rawNodes.filter(node => node.data?.parent_id === targetNodeId);
+      
+      for (const child of children) {
+        nodesToDelete.push(...getNodesToDelete(child.id));
+      }
+      
+      return nodesToDelete;
+    };
+    
+    const allNodesToDelete = getNodesToDelete(nodeId);
+    console.log('Store: Deleting nodes (including children):', allNodesToDelete);
+    
+    // 删除所有相关节点
+    const updatedNodes = rawNodes.filter(node => !allNodesToDelete.includes(node.id));
+    
+    // 删除所有相关边
     const updatedEdges = rawEdges.filter(edge => 
-      edge.source !== nodeId && edge.target !== nodeId
+      !allNodesToDelete.includes(edge.source) && !allNodesToDelete.includes(edge.target)
     );
+    
+    // 清理折叠状态中的已删除节点
+    const newCollapsedNodes = new Set(collapsedNodes);
+    allNodesToDelete.forEach(deletedNodeId => {
+      newCollapsedNodes.delete(deletedNodeId);
+    });
     
     set({
       rawNodes: updatedNodes,
       rawEdges: updatedEdges,
+      collapsedNodes: newCollapsedNodes,
       selectedNode: null,
       hasUnsavedChanges: true,
     });

@@ -171,9 +171,7 @@ class LLMService:
     
     def _create_expansion_prompt(self, request: NodeExpansionRequest, target_node: Dict, current_nodes: List[Dict]) -> str:
         """创建节点扩展提示"""
-        current_label = target_node.get('data', {}).get('label', target_node.get('label', ''))
-        current_content = target_node.get('data', {}).get('content', '')
-        
+       
         # 直接使用前端传递的已排序节点构建层级结构
         hierarchy_info = ""
         if current_nodes and len(current_nodes) > 1:
@@ -187,6 +185,11 @@ class LLMService:
                 else:
                     hierarchy_info += f"{indent}├─ {node_label}\n"
             hierarchy_info += "\n"
+        elif len(current_nodes) == 1:
+            node_data = current_nodes[0].get('data', {})
+            node_label = node_data.get('label', '未知节点')
+            node_content = node_data.get('content', '')
+            hierarchy_info = f"当前思维导图只有根节点：{node_label}：{node_content}\n"
         
         prompt = f"""
 请扩展思维导图节点，生成最多不超过{request.max_children}个子节点。
