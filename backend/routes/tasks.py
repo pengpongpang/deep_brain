@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from models.task import Task, TaskCreate, TaskType
-from models.mindmap import GenerateMindMapRequest, NodeExpansionRequest
+from models.mindmap import GenerateMindMapRequest, NodeExpansionRequest, ExpandNodeTaskRequest
 from services.task_service import task_service
 from utils.auth import get_current_active_user
 from models.user import User
@@ -43,23 +43,30 @@ async def create_generate_mindmap_task(
             detail=f"创建任务失败: {str(e)}"
         )
 
+# 前端已处理路径节点排序，移除不再需要的函数
+
 @router.post("/expand-node", response_model=dict)
 async def create_expand_node_task(
-    request: NodeExpansionRequest,
-    current_nodes: List[dict],
+    task_request: ExpandNodeTaskRequest,
     current_user: User = Depends(get_current_active_user)
 ):
     """创建节点扩展任务"""
     try:
+        request = task_request.request
+        current_nodes = task_request.current_nodes
+        
         # 找到要扩展的节点信息
         target_node = next((node for node in current_nodes if node.get("id") == request.node_id), None)
         node_label = target_node.get("data", {}).get("label", "未知节点") if target_node else "未知节点"
+        
+        # 前端已传递排序好的路径节点，直接使用
+        path_nodes = current_nodes
         
         task_data = TaskCreate(
             task_type=TaskType.EXPAND_NODE,
             input_data={
                 "request": request.dict(),
-                "current_nodes": current_nodes
+                "current_nodes": path_nodes
             },
             user_id=str(current_user.id),
             title=f"扩展节点: {node_label}",

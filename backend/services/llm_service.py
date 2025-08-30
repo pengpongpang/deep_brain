@@ -76,8 +76,9 @@ class LLMService:
             if not target_node:
                 raise ValueError("Node not found")
             
-            prompt = self._create_expansion_prompt(request, target_node)
-            
+            prompt = self._create_expansion_prompt(request, target_node, current_nodes)
+            print("prompt: ")
+            print(prompt)
             # 在线程池中执行同步的OpenAI调用
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
@@ -108,13 +109,13 @@ class LLMService:
             )
             
             return {
-                "new_nodes": new_nodes,
-                "new_edges": new_edges
+                "nodes": new_nodes,
+                "edges": new_edges
             }
             
         except Exception as e:
             print(f"Error expanding node: {e}")
-            return {"new_nodes": [], "new_edges": []}
+            return {"nodes": [], "edges": []}
     
     def _create_mindmap_prompt(self, request: GenerateMindMapRequest) -> str:
         """创建思维导图生成提示"""
@@ -136,15 +137,18 @@ class LLMService:
 请返回JSON格式的数据，包含以下结构：
 {{
   "central_topic": "主题名称",
+  "central_content": "主题的精炼内容描述（20-50字）",
   "branches": [
     {{
       "id": "分支ID",
       "label": "分支标题",
+      "content": "分支的精炼内容描述（15-30字）",
       "level": 1,
       "children": [
         {{
           "id": "子节点ID",
           "label": "子节点标题",
+          "content": "子节点的精炼内容描述（10-25字）",
           "level": 2,
           "children": []
         }}
@@ -155,38 +159,65 @@ class LLMService:
 
 要求：
 1. 生成{request.depth}层深度的思维导图
-2. 每个节点都要有唯一的ID
-3. 内容要与主题相关且有逻辑性
-4. 确保JSON格式正确
+2. 每个节点都要有唯一的ID和标题
+3. 每个节点都必须包含精炼的内容描述，内容要简洁明了，突出要点
+4. 标题简洁，内容补充说明或展开要点
+5. 内容要与主题相关且有逻辑性
+6. 确保JSON格式正确
 """
         return prompt
     
-    def _create_expansion_prompt(self, request: NodeExpansionRequest, target_node: Dict) -> str:
+    # 前端已处理路径节点排序，移除不再需要的方法
+    
+    def _create_expansion_prompt(self, request: NodeExpansionRequest, target_node: Dict, current_nodes: List[Dict]) -> str:
         """创建节点扩展提示"""
+        current_label = target_node.get('data', {}).get('label', target_node.get('label', ''))
+        current_content = target_node.get('data', {}).get('content', '')
+        
+        # 直接使用前端传递的已排序节点构建层级结构
+        hierarchy_info = ""
+        if current_nodes and len(current_nodes) > 1:
+            hierarchy_info = ""
+            for i, node in enumerate(current_nodes):
+                node_data = node.get('data', {})
+                node_label = node_data.get('label', '未知节点')
+                indent = "  " * i
+                if i == len(current_nodes) - 1:
+                    hierarchy_info += f"{indent}└─ {node_label}：{node_content} ← 当前要扩展的节点\n"
+                else:
+                    hierarchy_info += f"{indent}├─ {node_label}\n"
+            hierarchy_info += "\n"
+        
         prompt = f"""
-请为思维导图节点「{target_node.get('data', {}).get('label', target_node.get('label', ''))}」生成{request.max_children}个子节点。
+请扩展思维导图节点，生成最多不超过{request.max_children}个子节点。
+下面是当前思维导图分支的结构：
+{hierarchy_info}
 
-扩展要求：{request.expansion_prompt}
-上下文信息：{request.context or '无'}
+扩展要求：{request.expansion_topic or '根据当前节点内容进行合理扩展'}
+补充上下文：{request.context or '无'}
 
 请返回JSON格式的数据：
 {{
   "children": [
     {{
       "label": "子节点标题1",
+      "content": "子节点的精炼内容描述1（10-25字）",
       "description": "子节点描述1"
     }},
     {{
       "label": "子节点标题2",
+      "content": "子节点的精炼内容描述2（10-25字）",
       "description": "子节点描述2"
     }}
   ]
 }}
 
 要求：
-1. 生成的子节点要与父节点相关
-2. 内容要有逻辑性和实用性
-3. 确保JSON格式正确
+1. 生成的子节点要与父节点相关，并考虑整个层级结构的逻辑关系
+2. 每个子节点都必须包含标题和精炼的内容描述
+3. 标题简洁，内容补充说明或展开要点
+4. 内容要有逻辑性和实用性，符合思维导图的层级逻辑
+5. 确保JSON格式正确
 """
         return prompt
     
@@ -203,6 +234,8 @@ class LLMService:
             "position": {"x": 400, "y": 200},
             "data": {
                 "label": mindmap_data.get("central_topic", "主题"),
+                "content": mindmap_data.get("central_content", ""),
+                "description": mindmap_data.get("central_content", ""),
                 "level": 0,
                 "parent_id": None,
                 "isRoot": True
@@ -251,6 +284,8 @@ class LLMService:
             "position": {"x": x, "y": y},
             "data": {
                 "label": branch.get("label", f"节点{branch_index + 1}"),
+                "content": branch.get("content", ""),
+                "description": branch.get("content", ""),
                 "level": level,
                 "parent_id": parent_id,
                 "isRoot": False
@@ -314,7 +349,8 @@ class LLMService:
                 "position": {"x": x, "y": y},
                 "data": {
                     "label": child.get("label", f"新节点{i + 1}"),
-                    "description": child.get("description", ""),
+                    "content": child.get("content", ""),
+                    "description": child.get("description", child.get("content", "")),
                     "level": parent_level + 1,
                     "parent_id": parent_node["id"],
                     "isRoot": False

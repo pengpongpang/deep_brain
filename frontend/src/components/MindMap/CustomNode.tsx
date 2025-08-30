@@ -14,6 +14,7 @@ import {
   Psychology as PsychologyIcon,
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
+  Autorenew as AutorenewIcon,
 } from '@mui/icons-material';
 
 interface CustomNodeData {
@@ -22,6 +23,8 @@ interface CustomNodeData {
   level: number;
   collapsed?: boolean;
   hasChildren?: boolean;
+  isExpanding?: boolean;
+  isDisabled?: boolean;
   onEdit?: (nodeId: string) => void;
   onDelete?: (nodeId: string) => void;
   onAddChild?: (nodeId: string) => void;
@@ -44,27 +47,37 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   };
 
   const handleEdit = () => {
+    if (data.isDisabled) return;
     data.onEdit?.(id);
     handleMenuClose();
   };
 
-  const handleDelete = () => {
-    data.onDelete?.(id);
-    handleMenuClose();
-  };
-
   const handleAddChild = () => {
+    if (data.isDisabled) return;
     data.onAddChild?.(id);
     handleMenuClose();
   };
 
   const handleExpand = () => {
+    if (data.isDisabled) return;
     data.onExpand?.(id);
     handleMenuClose();
   };
 
-  const handleToggleCollapse = (event: React.MouseEvent) => {
+  const handleDelete = () => {
+    if (data.isDisabled) return;
+    data.onDelete?.(id);
+    handleMenuClose();
+  };
+
+  const handleToggleCollapse = () => {
+    if (data.isDisabled) return;
+    data.onToggleCollapse?.(id);
+  };
+
+  const handleToggleCollapseClick = (event: React.MouseEvent) => {
     event.stopPropagation();
+    if (data.isDisabled) return;
     console.log('=== CUSTOM NODE: Toggle collapse clicked ===');
     console.log('Node ID:', id);
     console.log('Node label:', data.label);
@@ -146,18 +159,51 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           )}
         </Box>
         
+        {/* 扩展状态显示 */}
+        {data.isExpanding && (
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+            <AutorenewIcon 
+              fontSize="small" 
+              sx={{ 
+                animation: 'spin 1s linear infinite',
+                color: '#1976d2',
+                '@keyframes spin': {
+                  '0%': {
+                    transform: 'rotate(0deg)',
+                  },
+                  '100%': {
+                    transform: 'rotate(360deg)',
+                  },
+                },
+              }} 
+            />
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontSize: '10px', 
+                color: '#1976d2', 
+                ml: 0.5 
+              }}
+            >
+              扩展中
+            </Typography>
+          </Box>
+        )}
+        
         {(() => {
           console.log(`Node ${id} (${data.label}): hasChildren=${data.hasChildren}, collapsed=${data.collapsed}`);
           return data.hasChildren && (
             <IconButton
               size="small"
-              onClick={handleToggleCollapse}
+              onClick={handleToggleCollapseClick}
+              disabled={data.isDisabled}
               sx={{
                 width: '20px',
                 height: '20px',
                 padding: 0,
                 minWidth: 'auto',
                 ml: 1,
+                opacity: data.isDisabled ? 0.5 : 1,
               }}
             >
               {data.collapsed ? (
@@ -172,7 +218,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
       <Menu
         anchorEl={anchorEl}
-        open={open}
+        open={open && !data.isDisabled}
         onClose={handleMenuClose}
         anchorOrigin={{
           vertical: 'bottom',
@@ -183,19 +229,19 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           horizontal: 'left',
         }}
       >
-        <MenuItem onClick={handleEdit}>
+        <MenuItem onClick={handleEdit} disabled={data.isDisabled}>
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
           编辑
         </MenuItem>
-        <MenuItem onClick={handleAddChild}>
+        <MenuItem onClick={handleAddChild} disabled={data.isDisabled}>
           <AddIcon fontSize="small" sx={{ mr: 1 }} />
           添加子节点
         </MenuItem>
-        <MenuItem onClick={handleExpand}>
+        <MenuItem onClick={handleExpand} disabled={data.isDisabled || data.isExpanding}>
           <PsychologyIcon fontSize="small" sx={{ mr: 1 }} />
-          AI扩展
+          {data.isExpanding ? 'AI扩展中...' : 'AI扩展'}
         </MenuItem>
-        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+        <MenuItem onClick={handleDelete} disabled={data.isDisabled} sx={{ color: data.isDisabled ? 'text.disabled' : 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
           删除
         </MenuItem>
@@ -225,6 +271,8 @@ export default memo(CustomNode, (prevProps, nextProps) => {
     prevData.label === nextData.label &&
     prevData.hasChildren === nextData.hasChildren &&
     prevData.collapsed === nextData.collapsed &&
-    prevData.level === nextData.level
+    prevData.level === nextData.level &&
+    prevData.isExpanding === nextData.isExpanding &&
+    prevData.isDisabled === nextData.isDisabled
   );
 });

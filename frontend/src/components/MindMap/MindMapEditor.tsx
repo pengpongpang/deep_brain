@@ -52,6 +52,7 @@ import {
   fetchMindmapById,
   updateMindmap,
   expandNode,
+  pollExpandTaskStatus,
   updateCurrentMindmapNodes,
   updateCurrentMindmapEdges,
 } from '../../store/slices/mindmapSlice';
@@ -66,7 +67,7 @@ const MindMapEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { currentMindmap, isLoading } = useSelector((state: RootState) => state.mindmap);
+  const { currentMindmap, isLoading, expandingTasks } = useSelector((state: RootState) => state.mindmap);
   const { expandingNodeId } = useSelector((state: RootState) => state.ui);
   
   // 使用Zustand store替代本地状态
@@ -112,13 +113,13 @@ const MindMapEditor: React.FC = () => {
 
   // 更新节点和边
   useEffect(() => {
-    if (currentMindmap && rawNodes.length === 0) {
+    if (currentMindmap) {
       const nodesToProcess = currentMindmap.nodes || [];
       const edgesToProcess = currentMindmap.edges || [];
       console.log('Initializing store with:', nodesToProcess.length, 'nodes and', edgesToProcess.length, 'edges');
       initializeData(nodesToProcess, edgesToProcess);
     }
-  }, [currentMindmap, rawNodes.length, initializeData]);
+  }, [currentMindmap, initializeData]);
   
   // 收折展开处理
   const handleToggleCollapse = useCallback((nodeId: string) => {
@@ -130,20 +131,26 @@ const MindMapEditor: React.FC = () => {
   
   // 同步store中的数据到本地状态
   useEffect(() => {
-    const nodesWithCallbacks = visibleNodes.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        onEdit: handleEditNode,
-        onDelete: handleDeleteNode,
-        onAddChild: handleAddNode,
-        onExpand: handleExpandNode,
-        onToggleCollapse: handleToggleCollapse,
-      },
-    }));
+    const hasExpandingTasks = Object.keys(expandingTasks).length > 0;
+    const nodesWithCallbacks = visibleNodes.map(node => {
+      const isExpanding = expandingTasks[node.id] !== undefined;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isExpanding,
+          isDisabled: hasExpandingTasks,
+          onEdit: handleEditNode,
+          onDelete: handleDeleteNode,
+          onAddChild: handleAddNode,
+          onExpand: handleExpandNode,
+          onToggleCollapse: handleToggleCollapse,
+        },
+      };
+    });
     setLocalNodes(nodesWithCallbacks);
     setLocalEdges(edges);
-  }, [visibleNodes, edges, handleToggleCollapse]);
+  }, [visibleNodes, edges, expandingTasks, handleToggleCollapse]);
 
   // 编辑节点
   const handleEditNode = (nodeId: string) => {
@@ -401,31 +408,41 @@ const MindMapEditor: React.FC = () => {
 
   // 扩展节点提交
   const handleExpandNodeSubmit = async () => {
-    if (!nodeToExpand || !id) return;
+    if (!nodeToExpand || !id || !currentMindmap) return;
 
     try {
-      dispatch(setExpandingNodeId(nodeToExpand));
-      await dispatch(expandNode({
+      const result = await dispatch(expandNode({
         mindmapId: id!,
         nodeId: nodeToExpand,
         expansionPrompt: expansionTopic || '',
         maxChildren: 5,
+        currentNodes: currentMindmap.nodes,
+        currentEdges: currentMindmap.edges,
       })).unwrap();
       
-      dispatch(addNotification({
-        type: 'success',
-        message: '节点扩展成功',
-      }));
+      // 立即关闭弹窗
       setExpandDialogOpen(false);
       setExpansionTopic('');
       setNodeToExpand(null);
+      
+      // 开始轮询任务状态
+      if (result && result.taskId) {
+        dispatch(pollExpandTaskStatus({
+          taskId: result.taskId,
+          nodeId: nodeToExpand,
+          mindmapId: id!,
+        }));
+        
+        dispatch(addNotification({
+          type: 'info',
+          message: '节点扩展任务已创建，正在处理中...',
+        }));
+      }
     } catch (error) {
       dispatch(addNotification({
         type: 'error',
-        message: '节点扩展失败，请重试',
+        message: '创建扩展任务失败，请重试',
       }));
-    } finally {
-      dispatch(setExpandingNodeId(null));
     }
   };
 

@@ -215,7 +215,7 @@ export const taskAPI = {
     api.post('/tasks/generate-mindmap', data),
   
   createExpandNodeTask: (data: ExpandNodeRequest, currentNodes: any[]): Promise<AxiosResponse<TaskResponse>> =>
-    api.post('/tasks/expand-node', { ...data, current_nodes: currentNodes }),
+    api.post('/tasks/expand-node', { request: data, current_nodes: currentNodes }),
   
   stopTask: (taskId: string): Promise<AxiosResponse<{ message: string; task_id: string }>> =>
     api.post(`/tasks/${taskId}/stop`),

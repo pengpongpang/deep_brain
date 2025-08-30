@@ -71,6 +71,7 @@ interface MindmapState {
   isExpanding: boolean;
   expandingNodeId: string | null;
   generatingTasks: { [taskId: string]: Task };
+  expandingTasks: { [nodeId: string]: string }; // nodeId -> taskId
   completedMindmapId: string | null;
 }
 
@@ -83,6 +84,7 @@ const initialState: MindmapState = {
   isExpanding: false,
   expandingNodeId: null,
   generatingTasks: {},
+  expandingTasks: {},
   completedMindmapId: null,
 };
 
@@ -195,6 +197,31 @@ export const pollTaskStatus = createAsyncThunk(
   }
 );
 
+// 获取从根节点到指定节点的路径
+const getNodePathToRoot = (nodeId: string, nodes: MindMapNode[], edges: MindMapEdge[]): MindMapNode[] => {
+  const nodeMap = new Map(nodes.map(node => [node.id, node]));
+  const parentMap = new Map<string, string>();
+  
+  // 构建父子关系映射
+  edges.forEach(edge => {
+    parentMap.set(edge.target, edge.source);
+  });
+  
+  const path: MindMapNode[] = [];
+  let currentNodeId: string | undefined = nodeId;
+  
+  // 从当前节点向上追溯到根节点
+  while (currentNodeId) {
+    const node = nodeMap.get(currentNodeId);
+    if (node) {
+      path.unshift(node); // 添加到路径开头
+    }
+    currentNodeId = parentMap.get(currentNodeId);
+  }
+  
+  return path;
+};
+
 export const expandNode = createAsyncThunk(
   'mindmap/expandNode',
   async ({
@@ -202,23 +229,89 @@ export const expandNode = createAsyncThunk(
     nodeId,
     expansionPrompt,
     context,
-    maxChildren
+    maxChildren,
+    currentNodes,
+    currentEdges
   }: {
     mindmapId: string;
     nodeId: string;
     expansionPrompt: string;
     context?: string;
     maxChildren?: number;
+    currentNodes: MindMapNode[];
+    currentEdges: MindMapEdge[];
   }, { rejectWithValue }) => {
     try {
-      const response = await llmAPI.expandNode(mindmapId, {
+      // 只获取从根节点到扩展节点的路径节点
+      const pathNodes = getNodePathToRoot(nodeId, currentNodes, currentEdges);
+      
+      // 使用任务API创建扩展任务
+      const response = await taskAPI.createExpandNodeTask({
         node_id: nodeId,
         expansion_topic: expansionPrompt,
         max_new_nodes: maxChildren || 5
-      });
-      return response.data;
+      }, pathNodes);
+      
+      return {
+        taskId: response.data.task_id,
+        nodeId: nodeId,
+        mindmapId: mindmapId,
+        message: response.data.message
+      };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.detail || '扩展节点失败');
+      return rejectWithValue(error.response?.data?.detail || '创建扩展任务失败');
+    }
+  }
+);
+
+export const pollExpandTaskStatus = createAsyncThunk(
+  'mindmap/pollExpandTaskStatus',
+  async ({ taskId, nodeId, mindmapId }: { taskId: string; nodeId: string; mindmapId: string }, { rejectWithValue, dispatch, getState }) => {
+    try {
+      const response = await taskAPI.getTask(taskId);
+      const task = response.data;
+      
+      if (task.status === 'completed') {
+        // 任务完成，处理扩展结果
+        if (task.result && task.result.nodes && task.result.edges) {
+          // 直接添加新节点和边到当前思维导图
+          dispatch(addNodesToCurrentMindmap({
+            nodes: task.result.nodes,
+            edges: task.result.edges
+          }));
+          
+          // 保存更新后的思维导图到后端
+          const state = getState() as any;
+          const currentMindmap = state.mindmap.currentMindmap;
+          if (currentMindmap) {
+            try {
+              await dispatch(updateMindmap({
+                id: mindmapId,
+                data: {
+                  nodes: currentMindmap.nodes,
+                  edges: currentMindmap.edges
+                }
+              }));
+            } catch (error) {
+              console.warn('Failed to save expanded mindmap to backend:', error);
+            }
+          }
+        } else {
+          // 如果任务完成但没有扩展结果，重新获取思维导图
+          dispatch(fetchMindmapById(mindmapId));
+        }
+        return { taskId, nodeId, status: 'completed', result: task.result };
+      } else if (task.status === 'failed') {
+        return rejectWithValue(task.error_message || '扩展任务失败');
+      } else {
+        // 任务还在进行中，继续轮询
+        setTimeout(() => {
+          dispatch(pollExpandTaskStatus({ taskId, nodeId, mindmapId }));
+        }, 2000);
+        return { taskId, nodeId, status: task.status };
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || '获取任务状态失败');
     }
   }
 );
@@ -381,24 +474,37 @@ const mindmapSlice = createSlice({
       })
       // Expand node
       .addCase(expandNode.pending, (state) => {
-        state.isExpanding = true;
         state.error = null;
       })
       .addCase(expandNode.fulfilled, (state, action) => {
-        state.isExpanding = false;
-        state.expandingNodeId = null;
-        if (state.currentMindmap && action.payload) {
-          const expandedData = action.payload as any;
-          if (expandedData.nodes) {
-            state.currentMindmap.nodes = [...state.currentMindmap.nodes, ...expandedData.nodes];
-          }
-          if (expandedData.edges) {
-            state.currentMindmap.edges = [...state.currentMindmap.edges, ...expandedData.edges];
-          }
+        const result = action.payload as any;
+        if (result && result.taskId && result.nodeId) {
+          // 记录扩展任务
+          state.expandingTasks[result.nodeId] = result.taskId;
+          state.expandingNodeId = result.nodeId;
         }
       })
       .addCase(expandNode.rejected, (state, action) => {
-        state.isExpanding = false;
+        state.error = action.payload as string;
+      })
+      // Poll expand task status
+      .addCase(pollExpandTaskStatus.fulfilled, (state, action) => {
+        const result = action.payload as any;
+        if (result && result.status === 'completed') {
+          // 任务完成，清理扩展状态
+          delete state.expandingTasks[result.nodeId];
+          if (state.expandingNodeId === result.nodeId) {
+            state.expandingNodeId = null;
+          }
+        }
+      })
+      .addCase(pollExpandTaskStatus.rejected, (state, action) => {
+        // 轮询失败，清理扩展状态
+        const nodeId = state.expandingNodeId;
+        if (nodeId) {
+          delete state.expandingTasks[nodeId];
+          state.expandingNodeId = null;
+        }
         state.error = action.payload as string;
       });
   },

@@ -6,13 +6,17 @@ from .user import PyObjectId
 
 class MindMapNode(BaseModel):
     id: str
-    label: str
     type: str = "default"
     position: Dict[str, float] = {"x": 0, "y": 0}
     data: Optional[Dict[str, Any]] = {}
     style: Optional[Dict[str, Any]] = {}
     parent_id: Optional[str] = None
     level: int = 0
+    
+    @property
+    def label(self) -> str:
+        """从data中获取label字段"""
+        return self.data.get('label', '') if self.data else ''
 
 class MindMapEdge(BaseModel):
     id: str
@@ -69,9 +73,13 @@ class MindMap(MindMapBase):
 
 class NodeExpansionRequest(BaseModel):
     node_id: str
-    expansion_prompt: str
+    expansion_topic: str
     context: Optional[str] = None
     max_children: int = Field(default=5, ge=1, le=10)
+
+class ExpandNodeTaskRequest(BaseModel):
+    request: NodeExpansionRequest
+    current_nodes: List[Dict[str, Any]]
 
 class GenerateMindMapRequest(BaseModel):
     topic: str = Field(..., min_length=1, max_length=200)

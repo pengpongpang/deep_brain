@@ -236,7 +236,7 @@ class TaskService:
         # 更新进度
         await self.update_task(task_id, TaskUpdate(progress=50))
         
-        # 调用LLM服务扩展节点
+        # 调用LLM服务扩展节点，直接使用排序好的节点
         expansion_data = await llm_service.expand_node(request, current_nodes)
         
         # 更新进度
