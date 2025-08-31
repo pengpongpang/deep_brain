@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,7 +6,7 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActions,
+
   Typography,
   Button,
   Box,
@@ -32,12 +32,14 @@ import {
   Public as PublicIcon,
   Lock as PrivateIcon,
   Add as AddIcon,
+  AccountTree as NodesIcon,
+  Schedule as DateIcon,
 } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 import { RootState, AppDispatch } from '../../store/store';
-import { fetchMindmaps, deleteMindmap, generateMindmap, clearCompletedMindmapId } from '../../store/slices/mindmapSlice';
+import { fetchMindmaps, deleteMindmap, createMindmap, clearCompletedMindmapId } from '../../store/slices/mindmapSlice';
 import { addNotification } from '../../store/slices/uiSlice';
-import { getStatusColor, getStatusText } from '../../utils/taskUtils';
+
 
 interface CreateMindMapFormData {
   topic: string;
@@ -50,11 +52,6 @@ interface UnifiedItem {
   title: string;
   description: string;
   created_at: string;
-  isGenerating: boolean;
-  // 任务特有属性
-  status?: string;
-  progress?: number;
-  task_type?: string;
   // 思维导图特有属性
   is_public?: boolean;
   nodes?: any[];
@@ -63,7 +60,7 @@ interface UnifiedItem {
 const MindMapList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { mindmaps, isLoading, isGenerating, generatingTasks, completedMindmapId } = useSelector((state: RootState) => state.mindmap);
+  const { mindmaps, isLoading, completedMindmapId } = useSelector((state: RootState) => state.mindmap);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMindmapId, setSelectedMindmapId] = useState<string | null>(null);
@@ -143,20 +140,46 @@ const MindMapList: React.FC = () => {
 
   const handleCreateMindMap = async (data: CreateMindMapFormData) => {
     try {
-      const result = await dispatch(generateMindmap({
-        topic: data.topic,
+      // 创建只有根节点的思维导图
+      const rootNode = {
+        id: 'root',
+        type: 'custom',
+        position: { x: 400, y: 200 },
+        data: {
+          label: data.topic,
+          level: 0,
+          isRoot: true,
+          description: data.description || ''
+        },
+        style: {
+          background: '#ff6b6b',
+          color: 'white',
+          border: '2px solid #ff5252',
+          borderRadius: '10px',
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }
+      };
+
+      const result = await dispatch(createMindmap({
+        title: data.topic,
         description: data.description,
-        depth: 3,
-        style: 'default',
+        nodes: [rootNode],
+        edges: [],
+        layout: 'hierarchical',
+        theme: 'default',
+        is_public: false
       })).unwrap();
       
-      if (result && (result as any).task_id) {
+      if (result) {
         dispatch(addNotification({
-          type: 'info',
-          message: '思维导图生成任务已创建，正在后台处理中...',
+          type: 'success',
+          message: '思维导图创建成功！',
         }));
         setCreateDialogOpen(false);
         reset();
+        // 刷新思维导图列表
+        dispatch(fetchMindmaps());
       }
     } catch (error) {
       dispatch(addNotification({
@@ -166,25 +189,7 @@ const MindMapList: React.FC = () => {
     }
   };
 
-  // 获取当前正在生成的任务
-  const currentGeneratingTasks = Object.values(generatingTasks);
-  
-  // 使用ref记录之前的任务数量，用于检测任务完成
-  const prevTaskCountRef = useRef(currentGeneratingTasks.length);
 
-  // 监听任务数量变化，当任务完成时刷新思维导图列表
-  useEffect(() => {
-    const currentTaskCount = currentGeneratingTasks.length;
-    const prevTaskCount = prevTaskCountRef.current;
-    
-    // 如果任务数量减少，说明有任务完成了，刷新思维导图列表
-    if (prevTaskCount > 0 && currentTaskCount < prevTaskCount) {
-      dispatch(fetchMindmaps());
-    }
-    
-    // 更新记录的任务数量
-    prevTaskCountRef.current = currentTaskCount;
-  }, [currentGeneratingTasks.length, dispatch]);
 
   const handleShare = () => {
     // TODO: 实现分享功能
@@ -195,26 +200,11 @@ const MindMapList: React.FC = () => {
     handleMenuClose();
   };
 
-  // 创建统一的项目列表，包含正在生成的任务和已完成的思维导图
+  // 创建思维导图列表
   const unifiedItems = useMemo((): UnifiedItem[] => {
     const items: UnifiedItem[] = [];
     
-    // 添加正在生成的任务
-    currentGeneratingTasks.forEach(task => {
-      items.push({
-        id: `task-${task.id}`,
-        type: 'task',
-        title: task.title || task.input_data?.topic || '未命名任务',
-        description: task.description || task.input_data?.description || '正在使用AI生成思维导图...',
-        created_at: task.created_at,
-        status: task.status,
-        progress: task.progress,
-        task_type: task.task_type,
-        isGenerating: true
-      });
-    });
-    
-    // 添加已完成的思维导图
+    // 添加思维导图
     mindmaps.forEach(mindmap => {
       items.push({
         id: mindmap.id,
@@ -223,14 +213,13 @@ const MindMapList: React.FC = () => {
         description: mindmap.description || '暂无描述',
         created_at: mindmap.created_at,
         is_public: mindmap.is_public,
-        nodes: mindmap.nodes,
-        isGenerating: false
+        nodes: mindmap.nodes
       });
     });
     
     // 按创建时间排序，最新的在前面
     return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [currentGeneratingTasks, mindmaps]);
+  }, [mindmaps]);
 
   const filteredItems = unifiedItems.filter((item: UnifiedItem) =>
     item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -270,81 +259,156 @@ const MindMapList: React.FC = () => {
         <Grid container spacing={3}>
           {filteredItems.map((item: UnifiedItem) => (
             <Grid item xs={12} sm={6} md={4} key={item.id}>
-              <Card sx={{ 
-                height: '100%', 
-                display: 'flex', 
-                flexDirection: 'column',
-                ...(item.isGenerating && { border: '2px solid', borderColor: 'primary.main' })
-              }}>
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                    <Typography variant="h6" component="h3" gutterBottom>
+              <Card 
+                onClick={() => navigate(`/mindmaps/${item.id}`)}
+                sx={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  borderRadius: 3,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  transition: 'all 0.3s ease-in-out',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+                  }
+                }}>
+                <CardContent sx={{ flexGrow: 1, p: 2 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Typography 
+                      variant="h6" 
+                      component="h3" 
+                      sx={{
+                        fontWeight: 600,
+                        color: 'text.primary',
+                        lineHeight: 1.3,
+                        mb: 0
+                      }}
+                    >
                       {item.title}
                     </Typography>
-                    {item.isGenerating ? (
-                      <Chip 
-                        label={getStatusText(item.status!)} 
-                        color={getStatusColor(item.status!) as any}
-                        size="small"
-                      />
-                    ) : (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, item.id)}
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
-                    )}
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuOpen(e, item.id);
+                      }}
+                      sx={{
+                        color: 'text.secondary',
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          color: 'primary.main'
+                        }
+                      }}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
                   </Box>
                   
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
-                    {item.description}
-                  </Typography>
-                  
-                  {item.isGenerating ? (
-                     <Box display="flex" alignItems="center" mt={2}>
-                       <CircularProgress size={16} sx={{ mr: 1 }} />
-                       <Typography variant="caption" color="textSecondary">
-                         正在生成中...
-                       </Typography>
+                  <Box>
+                       <Box display="flex" alignItems="center" justifyContent="space-between">
+                         <Box display="flex" alignItems="center" gap={1.5}>
+                           {/* 公开/私有状态图标 */}
+                           {item.is_public ? (
+                             <Chip
+                               icon={<PublicIcon />}
+                               label="公开"
+                               size="small"
+                               sx={{
+                                 backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                                 color: 'primary.main',
+                                 border: '1px solid rgba(33, 150, 243, 0.2)',
+                                 fontWeight: 500
+                               }}
+                             />
+                           ) : (
+                             <Box 
+                               sx={{
+                                 display: 'flex',
+                                 alignItems: 'center',
+                                 justifyContent: 'center',
+                                 width: 32,
+                                 height: 32,
+                                 borderRadius: '50%',
+                                 backgroundColor: 'rgba(158, 158, 158, 0.1)',
+                                 border: '1px solid rgba(158, 158, 158, 0.2)'
+                               }}
+                             >
+                               <PrivateIcon 
+                                 sx={{ 
+                                   fontSize: 16, 
+                                   color: 'text.secondary' 
+                                 }} 
+                               />
+                             </Box>
+                           )}
+                           
+                           {/* 节点数量 */}
+                           <Box 
+                             sx={{
+                               display: 'flex',
+                               alignItems: 'center',
+                               gap: 0.5,
+                               backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                               px: 1,
+                               py: 0.5,
+                               borderRadius: 1,
+                               border: '1px solid rgba(76, 175, 80, 0.2)'
+                             }}
+                           >
+                             <NodesIcon 
+                               sx={{ 
+                                 fontSize: 14, 
+                                 color: 'success.main' 
+                               }} 
+                             />
+                             <Typography 
+                               variant="caption" 
+                               sx={{
+                                 color: 'success.main',
+                                 fontWeight: 500
+                               }}
+                             >
+                               {item.nodes?.length || 0}
+                             </Typography>
+                           </Box>
+                         </Box>
+                         
+                         {/* 创建时间 */}
+                         <Box 
+                           sx={{
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: 0.5
+                           }}
+                         >
+                           <DateIcon 
+                             sx={{ 
+                               fontSize: 14, 
+                               color: 'text.secondary' 
+                             }} 
+                           />
+                           <Typography 
+                             variant="caption" 
+                             color="text.secondary" 
+                             sx={{
+                               fontWeight: 400
+                             }}
+                           >
+                             {new Date(item.created_at).toLocaleDateString('zh-CN', {
+                               month: 'short',
+                               day: 'numeric'
+                             })}
+                           </Typography>
+                         </Box>
+                       </Box>
                      </Box>
-                  ) : (
-                    <Box display="flex" alignItems="center" gap={1} mt={2}>
-                      <Chip
-                        icon={item.is_public ? <PublicIcon /> : <PrivateIcon />}
-                        label={item.is_public ? '公开' : '私有'}
-                        size="small"
-                        color={item.is_public ? 'primary' : 'default'}
-                      />
-                      <Typography variant="caption" color="textSecondary">
-                        {item.nodes?.length || 0} 个节点
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  <Typography variant="caption" color="textSecondary" display="block" mt={1}>
-                    创建于 {new Date(item.created_at).toLocaleDateString()}
-                  </Typography>
                 </CardContent>
                 
-                {!item.isGenerating && (
-                   <CardActions>
-                     <Button
-                       size="small"
-                       color="primary"
-                       onClick={() => navigate(`/mindmaps/${item.id}`)}
-                     >
-                       打开
-                     </Button>
-                     <Button
-                       size="small"
-                       color="secondary"
-                       onClick={(e) => handleMenuOpen(e, item.id)}
-                     >
-                       更多
-                     </Button>
-                   </CardActions>
-                 )}
+
               </Card>
             </Grid>
           ))}
@@ -453,10 +517,9 @@ const MindMapList: React.FC = () => {
             <Button onClick={() => setCreateDialogOpen(false)}>取消</Button>
             <Button 
               type="submit" 
-              variant="contained" 
-              disabled={isGenerating}
+              variant="contained"
             >
-              {isGenerating ? '生成中...' : '创建'}
+              创建
             </Button>
           </DialogActions>
         </form>
