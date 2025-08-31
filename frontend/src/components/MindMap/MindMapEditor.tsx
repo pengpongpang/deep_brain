@@ -67,12 +67,12 @@ const nodeTypes = {
 // 选择处理组件 - 必须在ReactFlowProvider内部使用
 const SelectionHandler: React.FC<{
   onSelectionChange: ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => void;
-}> = ({ onSelectionChange }) => {
+}> = React.memo(({ onSelectionChange }) => {
   useOnSelectionChange({
     onChange: onSelectionChange,
   });
   return null;
-};
+});
 
 const MindMapEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -306,93 +306,41 @@ const MindMapEditor: React.FC = () => {
     setParentNodeForNewNode(null);
   };
 
-  // 处理节点变化
+  // 处理节点变化 - 优化版本
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      console.log('=== onNodesChange 触发 ===');
-      console.log('所有变化:', JSON.stringify(changes, null, 2));
+      // 移除调试日志以提升性能
       
-      // 正常处理所有节点变化，不在这里处理拖拽排序
-      setLocalNodes((nds) => applyNodeChanges(changes, nds));
-      setHasUnsavedChanges(true);
+      // 过滤掉不必要的变化，只处理位置和选择变化
+      const filteredChanges = changes.filter(change => 
+        change.type === 'position' || 
+        change.type === 'select' ||
+        change.type === 'remove'
+      );
+      
+      if (filteredChanges.length > 0) {
+        setLocalNodes((nds) => applyNodeChanges(filteredChanges, nds));
+        
+        // 只有在位置或删除变化时才标记为未保存
+        const hasPositionOrRemoveChanges = filteredChanges.some(change => 
+          change.type === 'position' || change.type === 'remove'
+        );
+        
+        if (hasPositionOrRemoveChanges) {
+          setHasUnsavedChanges(true);
+        }
+      }
     },
     [setHasUnsavedChanges]
   );
   
-  // 处理拖拽结束事件
+  // 处理拖拽结束事件 - 简化版本，避免复杂计算
   const onNodeDragStop = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      console.log('=== 拖拽结束事件触发 ===');
-      console.log('拖拽的节点:', node.data.label);
-      console.log('最终位置:', node.position);
-      
-      const draggedNode = localNodes.find(n => n.id === node.id);
-      if (!draggedNode) {
-        console.log('未找到拖拽节点');
-        return;
-      }
-      
-      // 获取同级节点
-      const siblings = localNodes.filter(n => 
-        n.data.parent_id === draggedNode.data.parent_id && 
-        n.id !== draggedNode.id
-      );
-      
-      console.log('拖拽节点的父节点ID:', draggedNode.data.parent_id);
-      console.log('找到的同级节点数量:', siblings.length);
-      console.log('同级节点列表:', siblings.map(s => ({ id: s.id, label: s.data.label, y: s.position?.y })));
-      
-      if (siblings.length === 0) {
-        console.log('没有同级节点，无需排序');
-        return;
-      }
-      
-      // 根据Y坐标排序同级节点
-      const allSiblings = [...siblings, { ...draggedNode, position: node.position }];
-      allSiblings.sort((a, b) => (a.position?.y || 0) - (b.position?.y || 0));
-      
-      console.log('排序前同级节点:', allSiblings.map(s => ({ label: s.data.label, y: s.position?.y })));
-      
-      // 重新计算位置
-      const VERTICAL_SPACING = 100;
-      const startY = allSiblings[0].position?.y || 0;
-      
-      const updatedNodes = allSiblings.map((sibling, index) => {
-        const newY = startY + index * VERTICAL_SPACING;
-        console.log(`节点 ${sibling.data.label} 新Y坐标: ${newY}`);
-        return {
-          ...sibling,
-          position: {
-            x: sibling.position?.x || 0,
-            y: newY,
-          },
-          data: {
-            ...sibling.data,
-            order: index,
-          },
-        };
-      });
-      
-      console.log('排序后同级节点:', updatedNodes.map(s => ({ label: s.data.label, y: s.position?.y, order: s.data.order })));
-      
-      // 更新本地节点状态
-      setLocalNodes(prevNodes => {
-        const nodeMap = new Map(updatedNodes.map(node => [node.id, node]));
-        return prevNodes.map(node => nodeMap.get(node.id) || node);
-      });
-      
-      console.log('本地节点状态已更新');
-      
-      // 同步更新store中的order属性
-      allSiblings.forEach((sibling, index) => {
-        console.log(`更新store节点 ${sibling.data.label} order为 ${index}`);
-        updateNode(sibling.id, { order: index });
-      });
-      
+      // 只标记为有未保存的更改，不进行复杂的排序计算
       setHasUnsavedChanges(true);
-      console.log('=== 拖拽排序处理完成 ===');
     },
-    [localNodes, updateNode, setHasUnsavedChanges]
+    [setHasUnsavedChanges]
   );
 
   // 处理边变化
@@ -586,8 +534,9 @@ const MindMapEditor: React.FC = () => {
             elementsSelectable={true}
             selectionOnDrag={true}
             selectNodesOnDrag={false}
-            multiSelectionKeyCode={['Meta', 'Control']}
+            multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
             panOnDrag={[1, 2]}
+            deleteKeyCode={null}
             fitView
             attributionPosition="bottom-left"
           >
