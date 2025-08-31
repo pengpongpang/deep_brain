@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import SaveConfirmDialog from '../Common/SaveConfirmDialog';
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning';
+import { useMindmapSnapshot } from '../../hooks/useMindmapSnapshot';
 import {
   Save as SaveIcon,
   Add as AddIcon,
@@ -121,7 +122,14 @@ const MindMapEditor: React.FC = () => {
   // 保存确认对话框状态
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // 快照系统
+  const { createSnapshot, updateSnapshot, compareWithSnapshot } = useMindmapSnapshot();
+  
+  // 按需检查是否有未保存的更改（仅在离开页面时调用）
+  const checkUnsavedChanges = useCallback(() => {
+    return compareWithSnapshot(rawNodes, rawEdges);
+  }, [compareWithSnapshot, rawNodes, rawEdges]);
 
   // 加载思维导图数据
   useEffect(() => {
@@ -150,6 +158,15 @@ const MindMapEditor: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMindmap, expandingTasks]);
+  
+  // 在数据初始加载完成后创建快照（只在mindmap变化时创建，避免每次数据更新都重置快照）
+  useEffect(() => {
+    if (rawNodes.length > 0 && currentMindmap) {
+      // 创建初始快照，使用store中的rawNodes和rawEdges
+      createSnapshot(rawNodes, rawEdges);
+      console.log('Created initial snapshot with', rawNodes.length, 'nodes and', rawEdges.length, 'edges');
+    }
+  }, [currentMindmap, createSnapshot]); // 移除rawNodes和rawEdges依赖，只在mindmap变化时创建快照
   
   // 收折展开处理
   const handleToggleCollapse = useCallback((nodeId: string) => {
@@ -252,7 +269,7 @@ const MindMapEditor: React.FC = () => {
       // 删除指定节点
       if (window.confirm('确定要删除这个节点吗？')) {
         deleteNode(nodeId);
-        setHasUnsavedChanges(true);
+        // hasUnsavedChanges现在通过快照对比自动计算
         if (selectedNode?.id === nodeId) {
           setSelectedNode(null);
         }
@@ -272,7 +289,7 @@ const MindMapEditor: React.FC = () => {
         nodesToDelete.forEach(node => {
           deleteNode(node.id);
         });
-        setHasUnsavedChanges(true);
+        // hasUnsavedChanges现在通过快照对比自动计算
         
         // 清空选择状态
         setSelectedNode(null);
@@ -339,7 +356,7 @@ const MindMapEditor: React.FC = () => {
     };
     
     addNode(newNode, parentNodeForNewNode || undefined);
-    setHasUnsavedChanges(true);
+    // hasUnsavedChanges现在通过快照对比自动计算
     
     setAddNodeDialogOpen(false);
     setNewNodeTitle('');
@@ -362,7 +379,7 @@ const MindMapEditor: React.FC = () => {
       // 只应用非拖动的变化
       if (filteredChanges.length > 0) {
         setLocalNodes((nds) => applyNodeChanges(filteredChanges, nds));
-        setHasUnsavedChanges(true);
+        // hasUnsavedChanges现在通过快照对比自动计算
       }
       
       // 对于拖动过程中的位置变化，直接更新DOM而不触发状态更新
@@ -418,7 +435,7 @@ const MindMapEditor: React.FC = () => {
         // 调用reorderNodes触发重新布局
         reorderNodes(draggedNode.id, sortedSiblings);
       }
-      setHasUnsavedChanges(true);
+      // hasUnsavedChanges现在通过快照对比自动计算
     },
     [reorderNodes, rawNodes, localNodes]
   );
@@ -427,7 +444,7 @@ const MindMapEditor: React.FC = () => {
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       setLocalEdges((eds) => applyEdgeChanges(changes, eds));
-      setHasUnsavedChanges(true);
+      // hasUnsavedChanges现在通过快照对比自动计算
     },
     []
   );
@@ -436,7 +453,7 @@ const MindMapEditor: React.FC = () => {
   const onConnect = useCallback(
     (params: Connection) => {
       setLocalEdges((eds) => addEdge(params, eds));
-      setHasUnsavedChanges(true);
+      // hasUnsavedChanges现在通过快照对比自动计算
     },
     []
   );
@@ -470,10 +487,12 @@ const MindMapEditor: React.FC = () => {
               color: node.data.color || '#1976d2',
               isRoot: node.data.isRoot || false,
               parent_id: node.data.parent_id || null,
+              order: node.data.order || 0,
             },
             level: node.data.level || 0,
             parent_id: node.data.parent_id || null,
             isRoot: node.data.isRoot || false,
+            order: node.data.order || 0,
           })),
           edges: rawEdges.map(edge => ({
             id: edge.id,
@@ -485,7 +504,12 @@ const MindMapEditor: React.FC = () => {
         },
       })).unwrap();
       
-      setHasUnsavedChanges(false);
+      // hasUnsavedChanges现在通过快照对比自动计算
+      
+      // 保存成功后更新快照
+      updateSnapshot(rawNodes, rawEdges);
+      console.log('Updated snapshot after save with', rawNodes.length, 'nodes and', rawEdges.length, 'edges');
+      
       dispatch(addNotification({
         type: 'success',
         message: '思维导图保存成功',
@@ -500,13 +524,13 @@ const MindMapEditor: React.FC = () => {
 
   // 处理导航确认
   const handleNavigationConfirm = useCallback((destination: string) => {
-    if (hasUnsavedChanges) {
+    if (checkUnsavedChanges()) {
       setPendingNavigation(destination);
       setSaveConfirmOpen(true);
     } else {
       navigate(destination);
     }
-  }, [hasUnsavedChanges, navigate]);
+  }, [checkUnsavedChanges, navigate]);
 
   // 保存并导航
   const handleSaveAndNavigate = useCallback(async () => {
@@ -525,7 +549,7 @@ const MindMapEditor: React.FC = () => {
 
   // 不保存直接导航
   const handleDiscardAndNavigate = useCallback(() => {
-    setHasUnsavedChanges(false);
+    // hasUnsavedChanges现在通过快照对比自动计算，不需要手动设置
     if (pendingNavigation) {
       navigate(pendingNavigation);
     }
@@ -535,7 +559,7 @@ const MindMapEditor: React.FC = () => {
 
   // 使用路由变化警告钩子
   const { showDialog, dialogProps } = useUnsavedChangesWarning({
-    hasUnsavedChanges,
+    hasUnsavedChanges: checkUnsavedChanges,
     onSave: handleSave,
     message: '您有未保存的更改，是否要保存？',
   });
@@ -584,7 +608,7 @@ const MindMapEditor: React.FC = () => {
   const handleUpdateNode = (updatedData: any) => {
     if (selectedNode) {
       updateNode(selectedNode.id, updatedData);
-      setHasUnsavedChanges(true);
+      // hasUnsavedChanges现在通过快照对比自动计算
       setEditDialogOpen(false);
       setSelectedNode(null);
     }

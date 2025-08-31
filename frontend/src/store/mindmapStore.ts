@@ -406,8 +406,8 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
 
   // 重新排序节点
   reorderNodes: (nodeId: string, siblings: CustomNode[]) => {
-    console.log('Store: Reordering nodes for', nodeId);
     const { rawNodes } = get();
+    
     const updatedNodes = rawNodes.map(node => {
       const siblingIndex = siblings.findIndex(s => s.id === node.id);
       if (siblingIndex !== -1) {
@@ -421,7 +421,6 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
       }
       return node;
     });
-    
     set({
       rawNodes: updatedNodes,
       // 移除未保存状态设置

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, UNSAFE_NavigationContext, To, NavigateOptions
 import { useContext } from 'react';
 
 interface UseUnsavedChangesWarningProps {
-  hasUnsavedChanges: boolean;
+  hasUnsavedChanges: boolean | (() => boolean);
   onSave: () => Promise<void> | void;
   message?: string;
 }
@@ -31,6 +31,11 @@ export const useUnsavedChangesWarning = ({
   const navigator = useContext(UNSAFE_NavigationContext).navigator;
   const blockedRef = useRef(false);
 
+  // 辅助函数：检查是否有未保存的更改
+  const checkHasUnsavedChanges = useCallback(() => {
+    return typeof hasUnsavedChanges === 'function' ? hasUnsavedChanges() : hasUnsavedChanges;
+  }, [hasUnsavedChanges]);
+
   // 处理路由变化的阻塞
   useEffect(() => {
     if (!navigator) return;
@@ -40,55 +45,55 @@ export const useUnsavedChangesWarning = ({
     const originalGo = navigator.go;
 
     navigator.push = (to: To, state?: any, opts?: NavigateOptions) => {
-       if (!blockedRef.current && hasUnsavedChanges) {
-         setShowDialog(true);
-         setPendingNavigation(() => () => {
-           blockedRef.current = true;
-           originalPush(to, state, opts);
-           blockedRef.current = false;
-         });
-       } else {
-         originalPush(to, state, opts);
-       }
-     };
+        if (!blockedRef.current && checkHasUnsavedChanges()) {
+          setShowDialog(true);
+          setPendingNavigation(() => () => {
+            blockedRef.current = true;
+            originalPush(to, state, opts);
+            blockedRef.current = false;
+          });
+        } else {
+          originalPush(to, state, opts);
+        }
+      };
 
     navigator.replace = (to: To, state?: any, opts?: NavigateOptions) => {
-       if (!blockedRef.current && hasUnsavedChanges) {
-         setShowDialog(true);
-         setPendingNavigation(() => () => {
-           blockedRef.current = true;
-           originalReplace(to, state, opts);
-           blockedRef.current = false;
-         });
-       } else {
-         originalReplace(to, state, opts);
-       }
-     };
+        if (!blockedRef.current && checkHasUnsavedChanges()) {
+          setShowDialog(true);
+          setPendingNavigation(() => () => {
+            blockedRef.current = true;
+            originalReplace(to, state, opts);
+            blockedRef.current = false;
+          });
+        } else {
+          originalReplace(to, state, opts);
+        }
+      };
 
-    navigator.go = (delta: number) => {
-       if (!blockedRef.current && hasUnsavedChanges) {
-         setShowDialog(true);
-         setPendingNavigation(() => () => {
-           blockedRef.current = true;
-           originalGo(delta);
-           blockedRef.current = false;
-         });
-       } else {
-         originalGo(delta);
-       }
-     };
+      navigator.go = (delta: number) => {
+        if (!blockedRef.current && checkHasUnsavedChanges()) {
+          setShowDialog(true);
+          setPendingNavigation(() => () => {
+            blockedRef.current = true;
+            originalGo(delta);
+            blockedRef.current = false;
+          });
+        } else {
+          originalGo(delta);
+        }
+      };
 
     return () => {
       navigator.push = originalPush;
       navigator.replace = originalReplace;
       navigator.go = originalGo;
     };
-  }, [navigator, hasUnsavedChanges]);
+  }, [navigator, checkHasUnsavedChanges]);
 
   // 处理页面退出的警告
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
+      if (checkHasUnsavedChanges()) {
         event.preventDefault();
         event.returnValue = message;
         return message;
@@ -100,7 +105,7 @@ export const useUnsavedChangesWarning = ({
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [hasUnsavedChanges, message]);
+  }, [checkHasUnsavedChanges, message]);
 
   // 保存并继续导航
   const handleSave = useCallback(async () => {
