@@ -19,6 +19,8 @@ import {
   MenuItem,
   Chip,
 } from '@mui/material';
+import SaveConfirmDialog from '../Common/SaveConfirmDialog';
+import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning';
 import {
   Save as SaveIcon,
   Add as AddIcon,
@@ -83,22 +85,19 @@ const MindMapEditor: React.FC = () => {
   
   // 使用Zustand store替代本地状态
   const {
-    visibleNodes,
-    visibleEdges: edges,
     rawNodes,
     rawEdges,
-    selectedNode,
-    hasUnsavedChanges,
+    visibleNodes,
+    visibleEdges: edges,
     collapsedNodes,
+    selectedNode,
     initializeData,
     toggleCollapse,
     addNode,
     updateNode,
     deleteNode,
-    moveNode,
     reorderNodes,
     setSelectedNode,
-    setHasUnsavedChanges,
   } = useMindmapStore();
   
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -118,6 +117,11 @@ const MindMapEditor: React.FC = () => {
   // 选择状态管理
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
   const [selectedEdges, setSelectedEdges] = useState<Edge[]>([]);
+  
+  // 保存确认对话框状态
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // 加载思维导图数据
   useEffect(() => {
@@ -125,6 +129,8 @@ const MindMapEditor: React.FC = () => {
       dispatch(fetchMindmapById(id));
     }
   }, [dispatch, id]);
+
+
 
   // 更新节点和边
   useEffect(() => {
@@ -246,6 +252,7 @@ const MindMapEditor: React.FC = () => {
       // 删除指定节点
       if (window.confirm('确定要删除这个节点吗？')) {
         deleteNode(nodeId);
+        setHasUnsavedChanges(true);
         if (selectedNode?.id === nodeId) {
           setSelectedNode(null);
         }
@@ -265,6 +272,7 @@ const MindMapEditor: React.FC = () => {
         nodesToDelete.forEach(node => {
           deleteNode(node.id);
         });
+        setHasUnsavedChanges(true);
         
         // 清空选择状态
         setSelectedNode(null);
@@ -331,6 +339,7 @@ const MindMapEditor: React.FC = () => {
     };
     
     addNode(newNode, parentNodeForNewNode || undefined);
+    setHasUnsavedChanges(true);
     
     setAddNodeDialogOpen(false);
     setNewNodeTitle('');
@@ -353,6 +362,7 @@ const MindMapEditor: React.FC = () => {
       // 只应用非拖动的变化
       if (filteredChanges.length > 0) {
         setLocalNodes((nds) => applyNodeChanges(filteredChanges, nds));
+        setHasUnsavedChanges(true);
       }
       
       // 对于拖动过程中的位置变化，直接更新DOM而不触发状态更新
@@ -410,7 +420,7 @@ const MindMapEditor: React.FC = () => {
       }
       setHasUnsavedChanges(true);
     },
-    [reorderNodes, setHasUnsavedChanges, rawNodes, localNodes]
+    [reorderNodes, rawNodes, localNodes]
   );
 
   // 处理边变化
@@ -419,13 +429,14 @@ const MindMapEditor: React.FC = () => {
       setLocalEdges((eds) => applyEdgeChanges(changes, eds));
       setHasUnsavedChanges(true);
     },
-    [setHasUnsavedChanges]
+    []
   );
 
   // 处理连接
   const onConnect = useCallback(
     (params: Connection) => {
-      // 连接处理逻辑
+      setLocalEdges((eds) => addEdge(params, eds));
+      setHasUnsavedChanges(true);
     },
     []
   );
@@ -487,6 +498,48 @@ const MindMapEditor: React.FC = () => {
     }
   };
 
+  // 处理导航确认
+  const handleNavigationConfirm = useCallback((destination: string) => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(destination);
+      setSaveConfirmOpen(true);
+    } else {
+      navigate(destination);
+    }
+  }, [hasUnsavedChanges, navigate]);
+
+  // 保存并导航
+  const handleSaveAndNavigate = useCallback(async () => {
+    try {
+      await handleSave();
+      if (pendingNavigation) {
+        navigate(pendingNavigation);
+      }
+    } catch (error) {
+      // 保存失败，不导航
+    } finally {
+      setSaveConfirmOpen(false);
+      setPendingNavigation(null);
+    }
+  }, [handleSave, pendingNavigation, navigate]);
+
+  // 不保存直接导航
+  const handleDiscardAndNavigate = useCallback(() => {
+    setHasUnsavedChanges(false);
+    if (pendingNavigation) {
+      navigate(pendingNavigation);
+    }
+    setSaveConfirmOpen(false);
+    setPendingNavigation(null);
+  }, [pendingNavigation, navigate]);
+
+  // 使用路由变化警告钩子
+  const { showDialog, dialogProps } = useUnsavedChangesWarning({
+    hasUnsavedChanges,
+    onSave: handleSave,
+    message: '您有未保存的更改，是否要保存？',
+  });
+
   // 扩展节点提交
   const handleExpandNodeSubmit = async () => {
     if (!nodeToExpand || !id || !currentMindmap) return;
@@ -531,6 +584,7 @@ const MindMapEditor: React.FC = () => {
   const handleUpdateNode = (updatedData: any) => {
     if (selectedNode) {
       updateNode(selectedNode.id, updatedData);
+      setHasUnsavedChanges(true);
       setEditDialogOpen(false);
       setSelectedNode(null);
     }
@@ -559,15 +613,11 @@ const MindMapEditor: React.FC = () => {
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {currentMindmap.title}
-            {hasUnsavedChanges && (
-              <Chip label="未保存" size="small" color="warning" sx={{ ml: 1 }} />
-            )}
           </Typography>
           
           <Button
             startIcon={<SaveIcon />}
             onClick={handleSave}
-            disabled={!hasUnsavedChanges}
             sx={{ mr: 1 }}
           >
             保存
@@ -761,10 +811,20 @@ const MindMapEditor: React.FC = () => {
         open={Boolean(settingsMenuAnchor)}
         onClose={() => setSettingsMenuAnchor(null)}
       >
-        <MenuItem onClick={() => navigate('/mindmaps')}>返回列表</MenuItem>
+        <MenuItem onClick={() => handleNavigationConfirm('/mindmaps')}>返回列表</MenuItem>
         <MenuItem onClick={() => {/* TODO: 实现分享功能 */}}>分享</MenuItem>
         <MenuItem onClick={() => {/* TODO: 实现导出功能 */}}>导出</MenuItem>
       </Menu>
+
+      {/* 保存确认对话框 */}
+      <SaveConfirmDialog
+        open={showDialog || saveConfirmOpen}
+        onClose={showDialog ? dialogProps.onClose : () => setSaveConfirmOpen(false)}
+        onSave={showDialog ? dialogProps.onSave : handleSaveAndNavigate}
+        onDiscard={showDialog ? dialogProps.onDiscard : handleDiscardAndNavigate}
+        title="离开页面确认"
+        message={showDialog ? dialogProps.message : "您有未保存的更改，是否要保存后离开？"}
+      />
     </Box>
   );
 };

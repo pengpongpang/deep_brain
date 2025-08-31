@@ -40,7 +40,6 @@ interface MindmapState {
   
   // UI状态
   selectedNode: CustomNode | null;
-  hasUnsavedChanges: boolean;
   
   // 操作方法
   initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => void;
@@ -51,7 +50,7 @@ interface MindmapState {
   moveNode: (nodeId: string, newParentId: string) => void;
   reorderNodes: (nodeId: string, siblings: CustomNode[]) => void;
   setSelectedNode: (node: CustomNode | null) => void;
-  setHasUnsavedChanges: (hasChanges: boolean) => void;
+  // 移除未保存状态管理
   
   // 内部方法
   updateVisibleData: () => void;
@@ -232,7 +231,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
   visibleEdges: [],
   collapsedNodes: new Set<string>(),
   selectedNode: null,
-  hasUnsavedChanges: false,
+  // 移除未保存状态重置
 
   // 初始化数据
   initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => {
@@ -243,7 +242,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
       rawNodes: nodes,
       rawEdges: edges,
       collapsedNodes: preserveCollapsedState ? currentCollapsedNodes : new Set<string>(),
-      hasUnsavedChanges: false,
+      // 移除未保存状态初始化
     });
     get().updateVisibleData();
   },
@@ -264,7 +263,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     
     set({ 
       collapsedNodes: newCollapsedNodes,
-      hasUnsavedChanges: true 
+      // 移除未保存状态设置 
     });
     get().updateVisibleData();
   },
@@ -298,7 +297,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
       rawNodes: updatedNodes,
       rawEdges: updatedEdges,
       collapsedNodes: newCollapsedNodes,
-      hasUnsavedChanges: true,
+      // 移除未保存状态设置
     });
     get().updateVisibleData();
   },
@@ -315,7 +314,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     
     set({
       rawNodes: updatedNodes,
-      hasUnsavedChanges: true,
+      // 移除未保存状态设置
     });
     get().updateVisibleData();
   },
@@ -359,7 +358,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
       rawEdges: updatedEdges,
       collapsedNodes: newCollapsedNodes,
       selectedNode: null,
-      hasUnsavedChanges: true,
+      // 移除未保存状态设置
     });
     get().updateVisibleData();
   },
@@ -400,7 +399,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     set({
       rawNodes: updatedNodes,
       rawEdges: updatedEdges,
-      hasUnsavedChanges: true,
+      // 移除未保存状态设置
     });
     get().updateVisibleData();
   },
@@ -425,7 +424,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     
     set({
       rawNodes: updatedNodes,
-      hasUnsavedChanges: true,
+      // 移除未保存状态设置
     });
     get().updateVisibleData();
   },
@@ -436,9 +435,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
   },
 
   // 设置未保存更改状态
-  setHasUnsavedChanges: (hasChanges: boolean) => {
-    set({ hasUnsavedChanges: hasChanges });
-  },
+  // 移除未保存状态管理方法
 
   // 处理节点布局和折叠状态
   processNodesWithLayout: (rawNodes: CustomNode[]) => {
