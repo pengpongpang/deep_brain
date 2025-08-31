@@ -44,6 +44,7 @@ import ReactFlow, {
   useReactFlow,
   applyNodeChanges,
   applyEdgeChanges,
+  useOnSelectionChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CustomNodeComponent from './CustomNode';
@@ -61,6 +62,16 @@ import { useMindmapStore } from '../../store/mindmapStore';
 
 const nodeTypes = {
   custom: CustomNodeComponent,
+};
+
+// 选择处理组件 - 必须在ReactFlowProvider内部使用
+const SelectionHandler: React.FC<{
+  onSelectionChange: ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => void;
+}> = ({ onSelectionChange }) => {
+  useOnSelectionChange({
+    onChange: onSelectionChange,
+  });
+  return null;
 };
 
 const MindMapEditor: React.FC = () => {
@@ -103,6 +114,10 @@ const MindMapEditor: React.FC = () => {
   // 本地状态管理nodes和edges以支持拖拽
   const [localNodes, setLocalNodes] = useState<Node[]>([]);
   const [localEdges, setLocalEdges] = useState<Edge[]>([]);
+  
+  // 选择状态管理
+  const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+  const [selectedEdges, setSelectedEdges] = useState<Edge[]>([]);
 
   // 加载思维导图数据
   useEffect(() => {
@@ -161,6 +176,23 @@ const MindMapEditor: React.FC = () => {
     setLocalEdges(edges);
   }, [visibleNodes, edges, expandingTasks, handleToggleCollapse]);
 
+  // 处理选择变化
+  const onSelectionChange = useCallback(
+    ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => {
+      console.log('Selection changed:', { nodes: nodes.length, edges: edges.length });
+      setSelectedNodes(nodes);
+      setSelectedEdges(edges);
+      
+      // 如果只选中了一个节点，更新selectedNode状态以保持兼容性
+      if (nodes.length === 1) {
+        setSelectedNode(nodes[0]);
+      } else {
+        setSelectedNode(null);
+      }
+    },
+    [setSelectedNode]
+  );
+
   // 编辑节点
   const handleEditNode = (nodeId: string) => {
     const node = visibleNodes.find(n => n.id === nodeId);
@@ -178,11 +210,34 @@ const MindMapEditor: React.FC = () => {
 
   // 删除节点
   const handleDeleteNode = (nodeId?: string) => {
-    const targetNodeId = nodeId || selectedNode?.id;
-    if (targetNodeId && window.confirm('确定要删除这个节点吗？')) {
-      deleteNode(targetNodeId);
-      if (selectedNode?.id === targetNodeId) {
+    if (nodeId) {
+      // 删除指定节点
+      if (window.confirm('确定要删除这个节点吗？')) {
+        deleteNode(nodeId);
+        if (selectedNode?.id === nodeId) {
+          setSelectedNode(null);
+        }
+      }
+    } else {
+      // 删除选中的节点（支持多选）
+      const nodesToDelete = selectedNodes.length > 0 ? selectedNodes : (selectedNode ? [selectedNode] : []);
+      
+      if (nodesToDelete.length === 0) return;
+      
+      const confirmMessage = nodesToDelete.length === 1 
+        ? '确定要删除这个节点吗？'
+        : `确定要删除这${nodesToDelete.length}个节点吗？`;
+        
+      if (window.confirm(confirmMessage)) {
+        // 删除所有选中的节点
+        nodesToDelete.forEach(node => {
+          deleteNode(node.id);
+        });
+        
+        // 清空选择状态
         setSelectedNode(null);
+        setSelectedNodes([]);
+        setSelectedEdges([]);
       }
     }
   };
@@ -503,7 +558,7 @@ const MindMapEditor: React.FC = () => {
           
           <IconButton
             onClick={() => handleDeleteNode()}
-            disabled={!selectedNode}
+            disabled={!selectedNode && selectedNodes.length === 0}
             color="error"
           >
             <DeleteIcon />
@@ -528,9 +583,15 @@ const MindMapEditor: React.FC = () => {
             onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes}
             nodesDraggable={true}
+            elementsSelectable={true}
+            selectionOnDrag={true}
+            selectNodesOnDrag={false}
+            multiSelectionKeyCode={['Meta', 'Control']}
+            panOnDrag={[1, 2]}
             fitView
             attributionPosition="bottom-left"
           >
+            <SelectionHandler onSelectionChange={onSelectionChange} />
             <Background />
             <Controls />
           </ReactFlow>

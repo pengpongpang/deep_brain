@@ -38,7 +38,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
   const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
-    event.stopPropagation();
+    // 不阻止事件传播，让ReactFlow处理选择
     setAnchorEl(event.currentTarget);
   };
 
@@ -76,6 +76,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   };
 
   const handleToggleCollapseClick = (event: React.MouseEvent) => {
+    // 只阻止这个特定按钮的事件传播，避免触发节点选择
     event.stopPropagation();
     if (data.isDisabled) return;
     console.log('=== CUSTOM NODE: Toggle collapse clicked ===');
