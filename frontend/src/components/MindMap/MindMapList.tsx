@@ -3,10 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
-  Grid,
-  Card,
-  CardContent,
-
   Typography,
   Button,
   Box,
@@ -22,6 +18,14 @@ import {
   Chip,
   CircularProgress,
   Fab,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Divider,
+  Paper,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -256,148 +260,80 @@ const MindMapList: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : filteredItems.length > 0 ? (
-        <Grid container spacing={3}>
-          {filteredItems.map((item: UnifiedItem) => (
-            <Grid item xs={12} sm={6} md={4} key={item.id}>
-              <Card 
-                onClick={() => navigate(`/mindmaps/${item.id}`)}
-                sx={{ 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  transition: 'all 0.3s ease-in-out',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
-                  }
-                }}>
-                <CardContent sx={{ flexGrow: 1, p: 2 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Typography 
-                      variant="h6" 
-                      component="h3" 
-                      sx={{
-                        fontWeight: 600,
-                        color: 'text.primary',
-                        lineHeight: 1.3,
-                        mb: 0
-                      }}
-                    >
-                      {item.title}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMenuOpen(e, item.id);
-                      }}
-                      sx={{
-                        color: 'text.secondary',
-                        '&:hover': {
-                          backgroundColor: 'action.hover',
-                          color: 'primary.main'
-                        }
-                      }}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Box>
-                       <Box display="flex" alignItems="center" justifyContent="space-between">
-                         <Box display="flex" alignItems="center" gap={1.5}>
-                           {/* 公开/私有状态图标 */}
-                           {item.is_public ? (
-                             <Chip
-                               icon={<PublicIcon />}
-                               label="公开"
-                               size="small"
-                               sx={{
-                                 backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                                 color: 'primary.main',
-                                 border: '1px solid rgba(33, 150, 243, 0.2)',
-                                 fontWeight: 500
-                               }}
-                             />
-                           ) : (
-                             <Box 
-                               sx={{
-                                 display: 'flex',
-                                 alignItems: 'center',
-                                 justifyContent: 'center',
-                                 width: 32,
-                                 height: 32,
-                                 borderRadius: '50%',
-                                 backgroundColor: 'rgba(158, 158, 158, 0.1)',
-                                 border: '1px solid rgba(158, 158, 158, 0.2)'
-                               }}
-                             >
-                               <PrivateIcon 
-                                 sx={{ 
-                                   fontSize: 16, 
-                                   color: 'text.secondary' 
-                                 }} 
-                               />
-                             </Box>
-                           )}
-                           
-                           {/* 节点数量 */}
-                           <Box 
+        <Paper sx={{ mt: 2 }}>
+          <List>
+            {filteredItems.map((item: UnifiedItem, index) => (
+              <React.Fragment key={item.id}>
+                <ListItem
+                  onClick={() => navigate(`/mindmaps/${item.id}`)}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    },
+                    py: 2,
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Typography 
+                        variant="h6" 
+                        component="h3" 
+                        sx={{
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {item.title}
+                      </Typography>
+                    }
+                    secondary={
+                       <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                         {/* 公开/私有状态图标 */}
+                         {item.is_public ? (
+                           <Chip
+                             icon={<PublicIcon />}
+                             label="公开"
+                             size="small"
                              sx={{
-                               display: 'flex',
-                               alignItems: 'center',
-                               gap: 0.5,
-                               backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                               px: 1,
-                               py: 0.5,
-                               borderRadius: 1,
-                               border: '1px solid rgba(76, 175, 80, 0.2)'
+                               backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                               color: 'primary.main',
+                               border: '1px solid rgba(33, 150, 243, 0.2)',
+                               fontWeight: 500
                              }}
-                           >
-                             <NodesIcon 
-                               sx={{ 
-                                 fontSize: 14, 
-                                 color: 'success.main' 
-                               }} 
-                             />
-                             <Typography 
-                               variant="caption" 
-                               sx={{
-                                 color: 'success.main',
-                                 fontWeight: 500
-                               }}
-                             >
-                               {item.nodes?.length || 0}
-                             </Typography>
-                           </Box>
-                         </Box>
+                           />
+                         ) : (
+                           <Chip
+                             icon={<PrivateIcon />}
+                             label="私有"
+                             size="small"
+                             sx={{
+                               backgroundColor: 'rgba(158, 158, 158, 0.1)',
+                               color: 'text.secondary',
+                               border: '1px solid rgba(158, 158, 158, 0.2)',
+                               fontWeight: 500
+                             }}
+                           />
+                         )}
+                         
+                         {/* 节点数量 */}
+                         <Chip
+                           icon={<NodesIcon />}
+                           label={`${item.nodes?.length || 0} 节点`}
+                           size="small"
+                           sx={{
+                             backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                             color: 'success.main',
+                             border: '1px solid rgba(76, 175, 80, 0.2)',
+                             fontWeight: 500
+                           }}
+                         />
                          
                          {/* 创建时间 */}
-                         <Box 
-                           sx={{
-                             display: 'flex',
-                             alignItems: 'center',
-                             gap: 0.5
-                           }}
-                         >
-                           <DateIcon 
-                             sx={{ 
-                               fontSize: 14, 
-                               color: 'text.secondary' 
-                             }} 
-                           />
-                           <Typography 
-                             variant="caption" 
-                             color="text.secondary" 
-                             sx={{
-                               fontWeight: 400
-                             }}
-                           >
+                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                           <DateIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                           <Typography variant="caption" color="text.secondary">
                              {new Date(item.created_at).toLocaleDateString('zh-CN', {
                                month: 'short',
                                day: 'numeric'
@@ -405,14 +341,25 @@ const MindMapList: React.FC = () => {
                            </Typography>
                          </Box>
                        </Box>
-                     </Box>
-                </CardContent>
-                
-
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                     }
+                   />
+                   <ListItemSecondaryAction>
+                     <IconButton
+                       edge="end"
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         handleMenuOpen(e, item.id);
+                       }}
+                     >
+                       <MoreVertIcon />
+                     </IconButton>
+                   </ListItemSecondaryAction>
+                 </ListItem>
+                 {index < filteredItems.length - 1 && <Divider />}
+               </React.Fragment>
+             ))}
+           </List>
+         </Paper>
       ) : (
         <Card>
           <CardContent>
