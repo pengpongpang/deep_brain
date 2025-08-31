@@ -147,39 +147,71 @@ const MindMapEditor: React.FC = () => {
   
   // 收折展开处理
   const handleToggleCollapse = useCallback((nodeId: string) => {
-    console.log('=== TOGGLE COLLAPSE START ===');
-    console.log('Target node ID:', nodeId);
     toggleCollapse(nodeId);
-    console.log('=== TOGGLE COLLAPSE END ===');
   }, [toggleCollapse]);
   
   // 同步store中的数据到本地状态
   useEffect(() => {
     const hasExpandingTasks = Object.keys(expandingTasks).length > 0;
-    const nodesWithCallbacks = visibleNodes.map(node => {
-      const isExpanding = expandingTasks[node.id] !== undefined;
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          isExpanding,
-          isDisabled: hasExpandingTasks,
-          onEdit: handleEditNode,
-          onDelete: handleDeleteNode,
-          onAddChild: handleAddNode,
-          onExpand: handleExpandNode,
-          onToggleCollapse: handleToggleCollapse,
-        },
-      };
+    
+    setLocalNodes(prevNodes => {
+      // 检查是否需要更新位置（布局变化）
+      const shouldUpdatePositions = visibleNodes.some(storeNode => {
+        const prevNode = prevNodes.find(p => p.id === storeNode.id);
+        return !prevNode || 
+               Math.abs(prevNode.position.x - storeNode.position.x) > 1 ||
+               Math.abs(prevNode.position.y - storeNode.position.y) > 1;
+      });
+      
+      // 如果节点数量没有变化且位置也没有显著变化，只更新扩展状态
+      if (prevNodes.length === visibleNodes.length && prevNodes.length > 0 && !shouldUpdatePositions) {
+        return prevNodes.map(prevNode => {
+          const storeNode = visibleNodes.find(n => n.id === prevNode.id);
+          if (!storeNode) return prevNode;
+          
+          const isExpanding = expandingTasks[prevNode.id] !== undefined;
+          return {
+            ...prevNode,
+            data: {
+              ...prevNode.data,
+              isExpanding,
+              isDisabled: hasExpandingTasks,
+              onEdit: handleEditNode,
+              onDelete: handleDeleteNode,
+              onAddChild: handleAddNode,
+              onExpand: handleExpandNode,
+              onToggleCollapse: handleToggleCollapse,
+            },
+          };
+        });
+      }
+      
+      // 节点数量变化时才完全重新创建
+      const nodesWithCallbacks = visibleNodes.map(node => {
+        const isExpanding = expandingTasks[node.id] !== undefined;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            isExpanding,
+            isDisabled: hasExpandingTasks,
+            onEdit: handleEditNode,
+            onDelete: handleDeleteNode,
+            onAddChild: handleAddNode,
+            onExpand: handleExpandNode,
+            onToggleCollapse: handleToggleCollapse,
+          },
+        };
+      });
+      return nodesWithCallbacks;
     });
-    setLocalNodes(nodesWithCallbacks);
+    
     setLocalEdges(edges);
-  }, [visibleNodes, edges, expandingTasks, handleToggleCollapse]);
+  }, [visibleNodes, edges, expandingTasks, handleToggleCollapse]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 处理选择变化
   const onSelectionChange = useCallback(
     ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => {
-      console.log('Selection changed:', { nodes: nodes.length, edges: edges.length });
       setSelectedNodes(nodes);
       setSelectedEdges(edges);
       
@@ -194,22 +226,22 @@ const MindMapEditor: React.FC = () => {
   );
 
   // 编辑节点
-  const handleEditNode = (nodeId: string) => {
+  const handleEditNode = useCallback((nodeId: string) => {
     const node = visibleNodes.find(n => n.id === nodeId);
     if (node) {
       setSelectedNode(node);
       setEditDialogOpen(true);
     }
-  };
+  }, [visibleNodes, setSelectedNode]);
 
   // 扩展节点
-  const handleExpandNode = (nodeId: string) => {
+  const handleExpandNode = useCallback((nodeId: string) => {
     setNodeToExpand(nodeId);
     setExpandDialogOpen(true);
-  };
+  }, []);
 
   // 删除节点
-  const handleDeleteNode = (nodeId?: string) => {
+  const handleDeleteNode = useCallback((nodeId?: string) => {
     if (nodeId) {
       // 删除指定节点
       if (window.confirm('确定要删除这个节点吗？')) {
@@ -240,10 +272,10 @@ const MindMapEditor: React.FC = () => {
         setSelectedEdges([]);
       }
     }
-  };
+  }, [deleteNode, selectedNode, selectedNodes, setSelectedNode]);
 
   // 添加节点
-  const handleAddNode = (parentId?: string) => {
+  const handleAddNode = useCallback((parentId?: string) => {
     let actualParentId: string | null = parentId || selectedNode?.id || null;
     
     if (!actualParentId) {
@@ -264,7 +296,7 @@ const MindMapEditor: React.FC = () => {
     setNewNodeTitle('');
     setNewNodeDescription('');
     setAddNodeDialogOpen(true);
-  };
+  }, [selectedNode, visibleNodes, collapsedNodes, toggleCollapse]);
 
   // 创建节点
   const handleCreateNode = () => {
@@ -306,47 +338,84 @@ const MindMapEditor: React.FC = () => {
     setParentNodeForNewNode(null);
   };
 
-  // 处理节点变化 - 优化版本
+  // 处理节点变化 - 优化拖动性能
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      // 移除调试日志以提升性能
+      // 过滤掉拖动过程中的位置变化，只保留其他类型的变化
+      const filteredChanges = changes.filter(change => {
+        if (change.type === 'position' && change.dragging) {
+          // 拖动过程中不更新状态，避免卡顿
+          return false;
+        }
+        return true;
+      });
       
-      // 过滤掉不必要的变化，只处理位置和选择变化
-      const filteredChanges = changes.filter(change => 
-        change.type === 'position' || 
-        change.type === 'select' ||
-        change.type === 'remove'
-      );
-      
+      // 只应用非拖动的变化
       if (filteredChanges.length > 0) {
         setLocalNodes((nds) => applyNodeChanges(filteredChanges, nds));
-        
-        // 只有在位置或删除变化时才标记为未保存
-        const hasPositionOrRemoveChanges = filteredChanges.some(change => 
-          change.type === 'position' || change.type === 'remove'
-        );
-        
-        if (hasPositionOrRemoveChanges) {
-          setHasUnsavedChanges(true);
-        }
+      }
+      
+      // 对于拖动过程中的位置变化，直接更新DOM而不触发状态更新
+      const dragChanges = changes.filter(change => 
+        change.type === 'position' && change.dragging
+      );
+      
+      if (dragChanges.length > 0) {
+        // 直接更新localNodes的位置，但不触发重新渲染
+        setLocalNodes((nds) => {
+          return nds.map(node => {
+            const dragChange = dragChanges.find(change => {
+              if (change.type === 'position' && 'id' in change) {
+                return change.id === node.id;
+              }
+              return false;
+            });
+            if (dragChange && dragChange.type === 'position' && 'position' in dragChange && dragChange.position) {
+              return {
+                ...node,
+                position: dragChange.position
+              };
+            }
+            return node;
+          });
+        });
       }
     },
-    [setHasUnsavedChanges]
+    []
   );
   
-  // 处理拖拽结束事件 - 简化版本，避免复杂计算
+  // 处理拖拽结束事件 - 触发重新布局
   const onNodeDragStop = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      // 只标记为有未保存的更改，不进行复杂的排序计算
+      // 拖动结束时，根据新位置重新排序同级节点
+      const draggedNode = rawNodes.find(n => n.id === node.id);
+      if (draggedNode) {
+        // 获取同级节点
+        const siblings = rawNodes.filter(n => n.data.parent_id === draggedNode.data.parent_id);
+        
+        // 创建一个临时的节点位置映射，包含拖动后的位置
+        const nodePositions = new Map();
+        localNodes.forEach(ln => nodePositions.set(ln.id, ln.position));
+        nodePositions.set(node.id, node.position); // 使用拖动后的新位置
+        
+        // 按Y坐标重新排序同级节点
+        const sortedSiblings = siblings.sort((a, b) => {
+          const aY = nodePositions.get(a.id)?.y || 0;
+          const bY = nodePositions.get(b.id)?.y || 0;
+          return aY - bY;
+        });
+        
+        // 调用reorderNodes触发重新布局
+        reorderNodes(draggedNode.id, sortedSiblings);
+      }
       setHasUnsavedChanges(true);
     },
-    [setHasUnsavedChanges]
+    [reorderNodes, setHasUnsavedChanges, rawNodes, localNodes]
   );
 
   // 处理边变化
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      console.log('Edges changed:', changes);
       setLocalEdges((eds) => applyEdgeChanges(changes, eds));
       setHasUnsavedChanges(true);
     },
@@ -356,7 +425,7 @@ const MindMapEditor: React.FC = () => {
   // 处理连接
   const onConnect = useCallback(
     (params: Connection) => {
-      console.log('Connection:', params);
+      // 连接处理逻辑
     },
     []
   );
@@ -537,8 +606,19 @@ const MindMapEditor: React.FC = () => {
             multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
             panOnDrag={[1, 2]}
             deleteKeyCode={null}
+            preventScrolling={false}
+            nodeOrigin={[0.5, 0.5]}
             fitView
             attributionPosition="bottom-left"
+            elevateNodesOnSelect={false}
+            disableKeyboardA11y={true}
+            nodesConnectable={false}
+            onlyRenderVisibleElements={true}
+            maxZoom={2}
+            minZoom={0.1}
+            snapToGrid={false}
+            snapGrid={[15, 15]}
+            connectionMode={"loose" as any}
           >
             <SelectionHandler onSelectionChange={onSelectionChange} />
             <Background />

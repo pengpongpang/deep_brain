@@ -79,13 +79,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     // 只阻止这个特定按钮的事件传播，避免触发节点选择
     event.stopPropagation();
     if (data.isDisabled) return;
-    console.log('=== CUSTOM NODE: Toggle collapse clicked ===');
-    console.log('Node ID:', id);
-    console.log('Node label:', data.label);
-    console.log('Current collapsed state:', data.collapsed);
-    console.log('Has children:', data.hasChildren);
     data.onToggleCollapse?.(id);
-    console.log('=== CUSTOM NODE: Toggle collapse end ===');
   };
 
   const getNodeColor = (level: number) => {
@@ -191,30 +185,27 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           </Box>
         )}
         
-        {(() => {
-          console.log(`Node ${id} (${data.label}): hasChildren=${data.hasChildren}, collapsed=${data.collapsed}`);
-          return data.hasChildren && (
-            <IconButton
-              size="small"
-              onClick={handleToggleCollapseClick}
-              disabled={data.isDisabled}
-              sx={{
-                width: '20px',
-                height: '20px',
-                padding: 0,
-                minWidth: 'auto',
-                ml: 1,
-                opacity: data.isDisabled ? 0.5 : 1,
-              }}
-            >
-              {data.collapsed ? (
-                <ChevronRightIcon fontSize="small" />
-              ) : (
-                <ExpandMoreIcon fontSize="small" />
-              )}
-            </IconButton>
-          );
-        })()}
+        {data.hasChildren && (
+          <IconButton
+            size="small"
+            onClick={handleToggleCollapseClick}
+            disabled={data.isDisabled}
+            sx={{
+              width: '20px',
+              height: '20px',
+              padding: 0,
+              minWidth: 'auto',
+              ml: 1,
+              opacity: data.isDisabled ? 0.5 : 1,
+            }}
+          >
+            {data.collapsed ? (
+              <ChevronRightIcon fontSize="small" />
+            ) : (
+              <ExpandMoreIcon fontSize="small" />
+            )}
+          </IconButton>
+        )}
       </Box>
 
       <Menu
@@ -262,7 +253,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 };
 
 export default memo(CustomNode, (prevProps, nextProps) => {
-  // 自定义比较函数，确保关键属性变化时重新渲染
+  // 自定义比较函数，只比较影响渲染的数据属性，忽略函数引用
   const prevData = prevProps.data;
   const nextData = nextProps.data;
   
@@ -270,10 +261,12 @@ export default memo(CustomNode, (prevProps, nextProps) => {
     prevProps.id === nextProps.id &&
     prevProps.selected === nextProps.selected &&
     prevData.label === nextData.label &&
+    prevData.content === nextData.content &&
     prevData.hasChildren === nextData.hasChildren &&
     prevData.collapsed === nextData.collapsed &&
     prevData.level === nextData.level &&
     prevData.isExpanding === nextData.isExpanding &&
     prevData.isDisabled === nextData.isDisabled
+    // 不比较函数引用 (onEdit, onDelete, etc.) 因为它们不影响视觉渲染
   );
 });
