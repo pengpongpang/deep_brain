@@ -553,7 +553,7 @@ const MindMapEditor: React.FC = () => {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: 'calc(100vh - 64px - 48px)', display: 'flex', flexDirection: 'column' }}>
       {/* 工具栏 */}
       <Paper elevation={1} sx={{ zIndex: 1000 }}>
         <Toolbar>
