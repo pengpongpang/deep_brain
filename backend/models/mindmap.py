@@ -12,6 +12,7 @@ class MindMapNode(BaseModel):
     style: Optional[Dict[str, Any]] = {}
     parent_id: Optional[str] = None
     level: int = 0
+    order: int = 0
     
     @property
     def label(self) -> str:

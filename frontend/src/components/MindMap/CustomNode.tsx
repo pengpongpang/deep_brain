@@ -16,6 +16,7 @@ import {
   ChevronRight as ChevronRightIcon,
   Autorenew as AutorenewIcon,
 } from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown';
 
 interface CustomNodeData {
   label: string;
@@ -124,8 +125,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ flex: 1 }}>
-          <Typography
-            variant="body2"
+          <Box
             sx={{
               fontWeight: data.level === 0 ? 'bold' : 'normal',
               fontSize: data.level === 0 ? '14px' : '12px',
@@ -133,24 +133,58 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
               wordBreak: 'break-word',
               lineHeight: 1.3,
               mb: data.content ? 0.5 : 0,
+              '& p': {
+                margin: 0,
+                fontSize: 'inherit',
+                fontWeight: 'inherit',
+                color: 'inherit',
+              },
+              '& strong': {
+                fontWeight: 'bold',
+              },
+              '& em': {
+                fontStyle: 'italic',
+              },
+              '& code': {
+                backgroundColor: 'rgba(0,0,0,0.1)',
+                padding: '2px 4px',
+                borderRadius: '3px',
+                fontSize: '0.9em',
+              },
             }}
           >
-            {data.label}
-          </Typography>
+            <ReactMarkdown>{data.label}</ReactMarkdown>
+          </Box>
           
           {data.content && (
-            <Typography
-              variant="caption"
+            <Box
               sx={{
                 fontSize: '10px',
                 color: '#666',
                 wordBreak: 'break-word',
                 lineHeight: 1.2,
                 display: 'block',
+                '& p': {
+                  margin: 0,
+                  fontSize: 'inherit',
+                  color: 'inherit',
+                },
+                '& strong': {
+                  fontWeight: 'bold',
+                },
+                '& em': {
+                  fontStyle: 'italic',
+                },
+                '& code': {
+                  backgroundColor: 'rgba(0,0,0,0.1)',
+                  padding: '1px 3px',
+                  borderRadius: '2px',
+                  fontSize: '0.9em',
+                },
               }}
             >
-              {data.content}
-            </Typography>
+              <ReactMarkdown>{data.content}</ReactMarkdown>
+            </Box>
           )}
         </Box>
         

@@ -122,6 +122,11 @@ const MindMapEditor: React.FC = () => {
   // 保存确认对话框状态
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  
+  // 删除确认对话框状态
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<string | null>(null);
+  const [nodesToDelete, setNodesToDelete] = useState<Node[]>([]);
 
   // 快照系统
   const { createSnapshot, updateSnapshot, compareWithSnapshot } = useMindmapSnapshot();
@@ -186,7 +191,7 @@ const MindMapEditor: React.FC = () => {
                Math.abs(prevNode.position.y - storeNode.position.y) > 1;
       });
       
-      // 如果节点数量没有变化且位置也没有显著变化，只更新扩展状态
+      // 如果节点数量没有变化且位置也没有显著变化，更新节点数据和扩展状态
       if (prevNodes.length === visibleNodes.length && prevNodes.length > 0 && !shouldUpdatePositions) {
         return prevNodes.map(prevNode => {
           const storeNode = visibleNodes.find(n => n.id === prevNode.id);
@@ -196,7 +201,7 @@ const MindMapEditor: React.FC = () => {
           return {
             ...prevNode,
             data: {
-              ...prevNode.data,
+              ...storeNode.data, // 使用store中的最新数据
               isExpanding,
               isDisabled: hasExpandingTasks,
               onEdit: handleEditNode,
@@ -258,46 +263,123 @@ const MindMapEditor: React.FC = () => {
   }, [visibleNodes, setSelectedNode]);
 
   // 扩展节点
-  const handleExpandNode = useCallback((nodeId: string) => {
+  const handleExpandNode = useCallback(async (nodeId: string) => {
+    // 检查是否有未保存的更改
+    if (checkUnsavedChanges()) {
+      if (!currentMindmap || !id) {
+        dispatch(addNotification({
+          type: 'error',
+          message: '无法保存，思维导图数据不完整',
+        }));
+        return;
+      }
+      
+      try {
+        // 先保存更改
+        await dispatch(updateMindmap({
+          id,
+          data: {
+            nodes: rawNodes.map(node => ({
+              id: node.id,
+              label: node.data.label || 'Untitled',
+              type: node.type || 'custom',
+              position: node.position,
+              data: {
+                label: node.data.label || 'Untitled',
+                level: node.data.level || 0,
+                content: node.data.content || '',
+                description: node.data.description || '',
+                color: node.data.color || '#1976d2',
+                isRoot: node.data.isRoot || false,
+                parent_id: node.data.parent_id || null,
+                order: node.data.order || 0,
+              },
+              level: node.data.level || 0,
+              parent_id: node.data.parent_id || null,
+              isRoot: node.data.isRoot || false,
+              order: node.data.order || 0,
+            })),
+            edges: rawEdges.map(edge => ({
+              id: edge.id,
+              source: edge.source,
+              target: edge.target,
+              type: edge.type || 'smoothstep',
+              animated: edge.animated || false,
+            })),
+          },
+        })).unwrap();
+        
+        // 保存成功后更新快照
+        updateSnapshot(rawNodes, rawEdges);
+        
+        dispatch(addNotification({
+          type: 'success',
+          message: '已保存更改，开始扩展节点',
+        }));
+      } catch (error) {
+        dispatch(addNotification({
+          type: 'error',
+          message: '保存失败，无法扩展节点',
+        }));
+        return;
+      }
+    }
+    
     setNodeToExpand(nodeId);
     setExpandDialogOpen(true);
-  }, []);
+  }, [checkUnsavedChanges, dispatch, currentMindmap, id, rawNodes, rawEdges, updateSnapshot]);
 
   // 删除节点
   const handleDeleteNode = useCallback((nodeId?: string) => {
     if (nodeId) {
       // 删除指定节点
-      if (window.confirm('确定要删除这个节点吗？')) {
-        deleteNode(nodeId);
-        // hasUnsavedChanges现在通过快照对比自动计算
-        if (selectedNode?.id === nodeId) {
-          setSelectedNode(null);
-        }
-      }
+      setNodeToDelete(nodeId);
+      setNodesToDelete([]);
+      setDeleteDialogOpen(true);
     } else {
       // 删除选中的节点（支持多选）
-      const nodesToDelete = selectedNodes.length > 0 ? selectedNodes : (selectedNode ? [selectedNode] : []);
+      const nodesToDeleteList = selectedNodes.length > 0 ? selectedNodes : (selectedNode ? [selectedNode] : []);
       
-      if (nodesToDelete.length === 0) return;
+      if (nodesToDeleteList.length === 0) return;
       
-      const confirmMessage = nodesToDelete.length === 1 
-        ? '确定要删除这个节点吗？'
-        : `确定要删除这${nodesToDelete.length}个节点吗？`;
-        
-      if (window.confirm(confirmMessage)) {
-        // 删除所有选中的节点
-        nodesToDelete.forEach(node => {
-          deleteNode(node.id);
-        });
-        // hasUnsavedChanges现在通过快照对比自动计算
-        
-        // 清空选择状态
-        setSelectedNode(null);
-        setSelectedNodes([]);
-        setSelectedEdges([]);
-      }
+      setNodeToDelete(null);
+      setNodesToDelete(nodesToDeleteList);
+      setDeleteDialogOpen(true);
     }
-  }, [deleteNode, selectedNode, selectedNodes, setSelectedNode]);
+  }, [selectedNode, selectedNodes]);
+  
+  // 确认删除节点
+  const confirmDeleteNode = useCallback(() => {
+    if (nodeToDelete) {
+      // 删除指定节点
+      deleteNode(nodeToDelete);
+      if (selectedNode?.id === nodeToDelete) {
+        setSelectedNode(null);
+      }
+    } else if (nodesToDelete.length > 0) {
+      // 删除所有选中的节点
+      nodesToDelete.forEach(node => {
+        deleteNode(node.id);
+      });
+      
+      // 清空选择状态
+      setSelectedNode(null);
+      setSelectedNodes([]);
+      setSelectedEdges([]);
+    }
+    
+    // 关闭对话框并重置状态
+    setDeleteDialogOpen(false);
+    setNodeToDelete(null);
+    setNodesToDelete([]);
+  }, [deleteNode, nodeToDelete, nodesToDelete, selectedNode, setSelectedNode]);
+  
+  // 取消删除
+  const cancelDeleteNode = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setNodeToDelete(null);
+    setNodesToDelete([]);
+  }, []);
 
   // 添加节点
   const handleAddNode = useCallback((parentId?: string) => {
@@ -604,15 +686,7 @@ const MindMapEditor: React.FC = () => {
     }
   };
 
-  // 更新节点
-  const handleUpdateNode = (updatedData: any) => {
-    if (selectedNode) {
-      updateNode(selectedNode.id, updatedData);
-      // hasUnsavedChanges现在通过快照对比自动计算
-      setEditDialogOpen(false);
-      setSelectedNode(null);
-    }
-  };
+
 
   if (isLoading) {
     return (
@@ -713,13 +787,16 @@ const MindMapEditor: React.FC = () => {
             label="标题"
             fullWidth
             variant="outlined"
-            defaultValue={selectedNode?.data.label || ''}
+            value={selectedNode?.data.label || ''}
             onChange={(e) => {
               if (selectedNode) {
-                setSelectedNode({
+                const updatedNode = {
                   ...selectedNode,
                   data: { ...selectedNode.data, label: e.target.value },
-                });
+                };
+                setSelectedNode(updatedNode);
+                // 实时更新store中的节点数据
+                updateNode(selectedNode.id, { label: e.target.value });
               }
             }}
           />
@@ -730,24 +807,29 @@ const MindMapEditor: React.FC = () => {
             multiline
             rows={4}
             variant="outlined"
-            defaultValue={selectedNode?.data.content || ''}
+            value={selectedNode?.data.content || ''}
             onChange={(e) => {
               if (selectedNode) {
-                setSelectedNode({
+                const updatedNode = {
                   ...selectedNode,
                   data: { ...selectedNode.data, content: e.target.value },
-                });
+                };
+                setSelectedNode(updatedNode);
+                // 实时更新store中的节点数据
+                updateNode(selectedNode.id, { content: e.target.value });
               }
             }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>取消</Button>
-          <Button
-            onClick={() => selectedNode && handleUpdateNode(selectedNode.data)}
+          <Button 
+            onClick={() => {
+              setEditDialogOpen(false);
+              setSelectedNode(null);
+            }} 
             variant="contained"
           >
-            保存
+            关闭
           </Button>
         </DialogActions>
       </Dialog>
@@ -839,6 +921,36 @@ const MindMapEditor: React.FC = () => {
         <MenuItem onClick={() => {/* TODO: 实现分享功能 */}}>分享</MenuItem>
         <MenuItem onClick={() => {/* TODO: 实现导出功能 */}}>导出</MenuItem>
       </Menu>
+
+      {/* 删除确认对话框 */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={cancelDeleteNode}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          确认删除
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            {nodeToDelete 
+              ? '确定要删除这个节点吗？此操作将同时删除其所有子节点，且无法撤销。'
+              : nodesToDelete.length === 1
+                ? '确定要删除这个节点吗？此操作将同时删除其所有子节点，且无法撤销。'
+                : `确定要删除这${nodesToDelete.length}个节点吗？此操作将同时删除其所有子节点，且无法撤销。`
+            }
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDeleteNode}>
+            取消
+          </Button>
+          <Button onClick={confirmDeleteNode} color="error" variant="contained">
+            删除
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 保存确认对话框 */}
       <SaveConfirmDialog
