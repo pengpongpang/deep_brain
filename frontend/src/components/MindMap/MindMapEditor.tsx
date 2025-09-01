@@ -97,6 +97,7 @@ const MindMapEditor: React.FC = () => {
     addNode,
     updateNode,
     deleteNode,
+    moveNode,
     reorderNodes,
     setSelectedNode,
   } = useMindmapStore();
@@ -493,33 +494,81 @@ const MindMapEditor: React.FC = () => {
     []
   );
   
-  // 处理拖拽结束事件 - 触发重新布局
+  // 处理拖拽结束事件 - 触发重新布局或建立父子关系
   const onNodeDragStop = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      // 拖动结束时，根据新位置重新排序同级节点
+      // 检查是否拖拽到了另一个节点上
       const draggedNode = rawNodes.find(n => n.id === node.id);
-      if (draggedNode) {
-        // 获取同级节点
-        const siblings = rawNodes.filter(n => n.data.parent_id === draggedNode.data.parent_id);
-        
-        // 创建一个临时的节点位置映射，包含拖动后的位置
-        const nodePositions = new Map();
-        localNodes.forEach(ln => nodePositions.set(ln.id, ln.position));
-        nodePositions.set(node.id, node.position); // 使用拖动后的新位置
-        
-        // 按Y坐标重新排序同级节点
-        const sortedSiblings = siblings.sort((a, b) => {
-          const aY = nodePositions.get(a.id)?.y || 0;
-          const bY = nodePositions.get(b.id)?.y || 0;
-          return aY - bY;
-        });
-        
-        // 调用reorderNodes触发重新布局
-        reorderNodes(draggedNode.id, sortedSiblings);
+      if (!draggedNode) return;
+      
+      // 获取鼠标位置下的元素
+      const elementsBelow = document.elementsFromPoint(event.clientX, event.clientY);
+      
+      // 查找是否有其他节点在拖拽位置下方
+      let targetNodeElement = null;
+      for (const element of elementsBelow) {
+        const nodeId = element.getAttribute('data-id');
+        if (nodeId && nodeId !== node.id && rawNodes.find(n => n.id === nodeId)) {
+          targetNodeElement = element;
+          break;
+        }
       }
+      
+      if (targetNodeElement) {
+         const targetNodeId = targetNodeElement.getAttribute('data-id');
+         if (!targetNodeId) return;
+         
+         const targetNode = rawNodes.find(n => n.id === targetNodeId);
+         
+         if (targetNode && targetNodeId !== draggedNode.data.parent_id) {
+          // 检查是否会创建循环引用
+          const wouldCreateCycle = (nodeId: string, potentialParentId: string): boolean => {
+             let currentId: string | null = potentialParentId;
+             while (currentId) {
+               if (currentId === nodeId) return true;
+               const currentNode = rawNodes.find(n => n.id === currentId);
+               currentId = currentNode?.data.parent_id || null;
+             }
+             return false;
+           };
+          
+          if (!wouldCreateCycle(draggedNode.id, targetNodeId)) {
+             // 建立新的父子关系
+             moveNode(draggedNode.id, targetNodeId);
+            dispatch(addNotification({
+              type: 'success',
+              message: `节点"${draggedNode.data.label}"已移动到"${targetNode.data.label}"下`,
+            }));
+            return;
+          } else {
+            dispatch(addNotification({
+              type: 'warning',
+              message: '无法移动节点：会创建循环引用',
+            }));
+          }
+        }
+      }
+      
+      // 如果没有拖拽到其他节点上，执行原有的重新排序逻辑
+      const siblings = rawNodes.filter(n => n.data.parent_id === draggedNode.data.parent_id);
+      
+      // 创建一个临时的节点位置映射，包含拖动后的位置
+      const nodePositions = new Map();
+      localNodes.forEach(ln => nodePositions.set(ln.id, ln.position));
+      nodePositions.set(node.id, node.position); // 使用拖动后的新位置
+      
+      // 按Y坐标重新排序同级节点
+      const sortedSiblings = siblings.sort((a, b) => {
+        const aY = nodePositions.get(a.id)?.y || 0;
+        const bY = nodePositions.get(b.id)?.y || 0;
+        return aY - bY;
+      });
+      
+      // 调用reorderNodes触发重新布局
+      reorderNodes(draggedNode.id, sortedSiblings);
       // hasUnsavedChanges现在通过快照对比自动计算
     },
-    [reorderNodes, rawNodes, localNodes]
+    [reorderNodes, rawNodes, localNodes, moveNode, dispatch]
   );
 
   // 处理边变化
