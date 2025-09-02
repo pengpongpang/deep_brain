@@ -124,8 +124,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         border: `2px solid ${selected ? '#1976d2' : getNodeColor(data.level)}`,
         boxShadow: selected ? '0 4px 12px rgba(25, 118, 210, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
         minWidth: '120px',
-        maxWidth: descriptionExpanded && data.description ? '300px' : '200px',
-        width: 'auto',
+        width: 'fit-content',
         position: 'relative',
         '&:hover': {
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -238,16 +237,22 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                     wordBreak: 'break-word',
                     lineHeight: 1.3,
                     mt: 0.5,
-                    pl: 1,
                     borderLeft: '2px solid #e0e0e0',
                     backgroundColor: 'rgba(0,0,0,0.02)',
                     padding: '4px 6px',
                     borderRadius: '4px',
                     maxWidth: '100%',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                    overflowWrap: 'break-word',
+                    hyphens: 'auto',
                     '& p': {
                       margin: 0,
                       fontSize: 'inherit',
                       color: 'inherit',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
                     },
                     '& strong': {
                       fontWeight: 'bold',
@@ -260,6 +265,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                       padding: '1px 2px',
                       borderRadius: '2px',
                       fontSize: '0.9em',
+                      wordBreak: 'break-all',
                     },
                   }}
                 >

@@ -73,18 +73,18 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
 
   // 计算每个节点的位置
   const nodePositions = new Map<string, { x: number; y: number }>();
-  const levelWidth = 280; // 增加层级间距
-  const minLeafSpacing = 40; // 叶子节点最小间距
-  const minBranchSpacing = 120; // 有子节点的节点最小间距
+  const levelWidth = 350; // 进一步增加层级间距，防止节点展开后重叠
+  const minLeafSpacing = 60; // 增加叶子节点最小间距
+  const minBranchSpacing = 150; // 增加有子节点的节点最小间距
   
   // 动态计算节点高度的函数
   const calculateNodeHeight = (node: CustomNode): number => {
-    const baseHeight = 80; // 增加基础高度
-    const labelHeight = 20; // 标题行高度
-    const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 25) * 15 : 0; // 内容高度估算
-    // 考虑description展开时的额外高度
-    const descriptionHeight = node.data.description ? Math.ceil(node.data.description.length / 30) * 12 + 30 : 0;
-    const padding = 32; // 增加上下内边距
+    const baseHeight = 100; // 进一步增加基础高度
+    const labelHeight = 25; // 增加标题行高度
+    const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 20) * 18 : 0; // 调整内容高度估算
+    // 考虑description展开时的额外高度，给予更多空间
+    const descriptionHeight = node.data.description ? Math.ceil(node.data.description.length / 25) * 15 + 40 : 0;
+    const padding = 40; // 进一步增加上下内边距
     return Math.max(baseHeight, labelHeight + contentHeight + descriptionHeight + padding);
   };
 
@@ -135,14 +135,14 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     });
     const totalHeight = adjustedHeights.reduce((sum, height) => sum + height, 0);
     
-    // 计算起始Y位置，使子节点居中分布
+    // 计算起始Y位置，使子节点垂直居中
     let currentY = parentPos.y - totalHeight / 2;
     
     children.forEach((child, index) => {
       const x = parentPos.x + levelWidth;
       const adjustedHeight = adjustedHeights[index];
       
-      // 将节点放在其调整后子树高度的中心
+      // 将节点放在当前区域的中心位置
       const y = currentY + adjustedHeight / 2;
       
       nodePositions.set(child.id, { x, y });
