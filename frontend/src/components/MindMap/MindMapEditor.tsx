@@ -175,6 +175,7 @@ const MindMapEditor: React.FC = () => {
     selectedNode,
     initializeData,
     toggleCollapse,
+    collapseAllChildren,
     addNode,
     updateNode,
     deleteNode,
@@ -304,6 +305,11 @@ const MindMapEditor: React.FC = () => {
     toggleCollapse(nodeId);
   }, [toggleCollapse]);
   
+  // 折叠所有子节点
+  const handleCollapseAllChildren = useCallback((nodeId: string) => {
+    collapseAllChildren(nodeId);
+  }, [collapseAllChildren]);
+  
   // 同步store中的数据到本地状态
   useEffect(() => {
     const hasExpandingTasks = Object.keys(expandingTasks).length > 0;
@@ -363,6 +369,7 @@ const MindMapEditor: React.FC = () => {
             onExpand: handleExpandNode,
             onEnhanceDescription: handleEnhanceDescription,
             onToggleCollapse: handleToggleCollapse,
+              onCollapseAllChildren: handleCollapseAllChildren,
             },
           };
         });
@@ -385,6 +392,7 @@ const MindMapEditor: React.FC = () => {
             onExpand: handleExpandNode,
             onEnhanceDescription: handleEnhanceDescription,
             onToggleCollapse: handleToggleCollapse,
+            onCollapseAllChildren: handleCollapseAllChildren,
           },
         };
       });
@@ -392,7 +400,7 @@ const MindMapEditor: React.FC = () => {
     });
     
     setLocalEdges(edges);
-  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, handleCollapseAllChildren, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 处理选择变化
   const onSelectionChange = useCallback(
@@ -660,6 +668,7 @@ const MindMapEditor: React.FC = () => {
         onAddChild: handleAddNode,
         onExpand: handleExpandNode,
         onToggleCollapse: handleToggleCollapse,
+        onCollapseAllChildren: handleCollapseAllChildren,
       },
     };
     

@@ -54,6 +54,7 @@ interface MindmapState {
   // 操作方法
   initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => void;
   toggleCollapse: (nodeId: string) => void;
+  collapseAllChildren: (nodeId: string) => void;
   addNode: (node: CustomNode, parentId?: string) => void;
   updateNode: (nodeId: string, data: Partial<NodeData>) => void;
   deleteNode: (nodeId: string) => void;
@@ -308,6 +309,40 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     set({ 
       collapsedNodes: newCollapsedNodes,
       // 移除未保存状态设置 
+    });
+    get().updateVisibleData();
+  },
+
+  // 折叠所有子节点
+  collapseAllChildren: (nodeId: string) => {
+    console.log('Store: Collapsing all children for node', nodeId);
+    const { rawNodes, collapsedNodes } = get();
+    const newCollapsedNodes = new Set(collapsedNodes);
+    
+    // 递归获取所有子节点
+    const getAllChildren = (parentId: string): string[] => {
+      const children = rawNodes.filter(node => node.data?.parent_id === parentId);
+      let allChildren: string[] = [];
+      
+      for (const child of children) {
+        allChildren.push(child.id);
+        // 递归获取子节点的子节点
+        allChildren.push(...getAllChildren(child.id));
+      }
+      
+      return allChildren;
+    };
+    
+    const allChildrenIds = getAllChildren(nodeId);
+    console.log('Store: Found children to collapse:', allChildrenIds);
+    
+    // 将所有子节点添加到折叠状态
+    allChildrenIds.forEach(childId => {
+      newCollapsedNodes.add(childId);
+    });
+    
+    set({ 
+      collapsedNodes: newCollapsedNodes,
     });
     get().updateVisibleData();
   },

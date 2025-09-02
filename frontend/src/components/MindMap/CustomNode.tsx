@@ -18,6 +18,7 @@ import {
   KeyboardArrowDown as KeyboardArrowDownIcon,
   Autorenew as AutorenewIcon,
   Description as DescriptionIcon,
+  UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -38,6 +39,7 @@ interface CustomNodeData {
   onAddChild?: (nodeId: string) => void;
   onExpand?: (nodeId: string) => void;
   onToggleCollapse?: (nodeId: string) => void;
+  onCollapseAllChildren?: (nodeId: string) => void;
   onEnhanceDescription?: (nodeId: string) => void;
 }
 
@@ -91,6 +93,12 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const handleToggleCollapse = () => {
     if (data.isDisabled) return;
     data.onToggleCollapse?.(id);
+  };
+
+  const handleCollapseAllChildren = () => {
+    if (data.isDisabled) return;
+    data.onCollapseAllChildren?.(id);
+    handleMenuClose();
   };
 
   const handleToggleCollapseClick = (event: React.MouseEvent) => {
@@ -453,6 +461,12 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           <DescriptionIcon fontSize="small" sx={{ mr: 1 }} />
           {data.isEnhancing ? 'AI补充中...' : 'AI补充描述'}
         </MenuItem>
+        {data.hasChildren && (
+          <MenuItem onClick={handleCollapseAllChildren} disabled={data.isDisabled}>
+            <UnfoldLessIcon fontSize="small" sx={{ mr: 1 }} />
+            折叠全部
+          </MenuItem>
+        )}
 
         <MenuItem onClick={handleDelete} disabled={data.isDisabled} sx={{ color: data.isDisabled ? 'text.disabled' : 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
