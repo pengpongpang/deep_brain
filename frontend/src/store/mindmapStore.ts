@@ -75,8 +75,8 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
   const nodePositions = new Map<string, { x: number; y: number }>();
   const minLeafSpacing = 60; // 增加叶子节点最小间距
   const minBranchSpacing = 150; // 增加有子节点的节点最小间距
-  const minParentChildGap = 100; // 父子节点间的最小间距
-  const extraPadding = 50; // 额外间距
+  const minParentChildGap = 60; // 父子节点间的最小间距
+  const extraPadding = 20; // 额外间距
   
   // 动态计算节点高度的函数
   const calculateNodeHeight = (node: CustomNode): number => {
