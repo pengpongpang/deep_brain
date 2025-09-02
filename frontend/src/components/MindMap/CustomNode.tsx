@@ -20,6 +20,8 @@ import {
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface CustomNodeData {
   label: string;
@@ -173,7 +175,36 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
               },
             }}
           >
-            <ReactMarkdown>{data.label}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                code({ className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const isInline = !match;
+                  return !isInline ? (
+                    <SyntaxHighlighter
+                      style={tomorrow as any}
+                      language={match[1]}
+                      PreTag="div"
+                      customStyle={{
+                        fontSize: '10px',
+                        margin: '2px 0',
+                        padding: '2px',
+                        borderRadius: '3px',
+                        backgroundColor: '#2d3748',
+                      } as any}
+                    >
+                      {String(children).replace(/\n$/, '')}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+              }}
+            >
+              {data.label}
+            </ReactMarkdown>
           </Box>
           
           {data.content && (
@@ -258,7 +289,36 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                     },
                   }}
                 >
-                  <ReactMarkdown>{data.description}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      code({ className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        const isInline = !match;
+                        return !isInline ? (
+                          <SyntaxHighlighter
+                            style={tomorrow as any}
+                            language={match[1]}
+                            PreTag="div"
+                            customStyle={{
+                              fontSize: '8px',
+                              margin: '4px 0',
+                              padding: '4px',
+                              borderRadius: '3px',
+                              backgroundColor: '#2d3748',
+                            } as any}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {data.description}
+                  </ReactMarkdown>
                 </Box>
               )}
             </Box>
