@@ -142,6 +142,8 @@ class TaskService:
                 result = await self._execute_generate_mindmap(task_id, task_data.input_data)
             elif task_data.task_type == TaskType.EXPAND_NODE:
                 result = await self._execute_expand_node(task_id, task_data.input_data)
+            elif task_data.task_type == TaskType.ENHANCE_DESCRIPTION:
+                result = await self._execute_enhance_description(task_id, task_data.input_data)
             else:
                 raise ValueError(f"Unknown task type: {task_data.task_type}")
             
@@ -243,6 +245,27 @@ class TaskService:
         await self.update_task(task_id, TaskUpdate(progress=90))
         
         return expansion_data
+
+    async def _execute_enhance_description(self, task_id: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """执行节点描述补充任务"""
+        # 更新进度
+        await self.update_task(task_id, TaskUpdate(progress=30))
+        
+        # 创建请求对象
+        from models.mindmap import NodeDescriptionEnhanceRequest
+        request = NodeDescriptionEnhanceRequest(**input_data["request"])
+        current_nodes = input_data["current_nodes"]
+        
+        # 更新进度
+        await self.update_task(task_id, TaskUpdate(progress=50))
+        
+        # 调用LLM服务补充描述
+        enhancement_data = await llm_service.enhance_node_description(request, current_nodes)
+        
+        # 更新进度
+        await self.update_task(task_id, TaskUpdate(progress=90))
+        
+        return enhancement_data
 
 # 创建全局任务服务实例
     async def stop_task(self, task_id: str, user_id: str) -> bool:

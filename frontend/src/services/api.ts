@@ -127,11 +127,16 @@ export interface ExpandNodeRequest {
   max_new_nodes?: number;
 }
 
+export interface EnhanceDescriptionRequest {
+  node_id: string;
+  enhancement_prompt?: string;
+}
+
 export interface Task {
   id: string;
   title?: string;
   description?: string;
-  task_type: 'generate_mindmap' | 'expand_node';
+  task_type: 'generate_mindmap' | 'expand_node' | 'enhance_description';
   status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'restarting';
   progress: number;
   result?: any;
@@ -216,6 +221,9 @@ export const taskAPI = {
   
   createExpandNodeTask: (data: ExpandNodeRequest, currentNodes: any[]): Promise<AxiosResponse<TaskResponse>> =>
     api.post('/tasks/expand-node', { request: data, current_nodes: currentNodes }),
+  
+  createEnhanceDescriptionTask: (data: EnhanceDescriptionRequest, currentNodes: any[]): Promise<AxiosResponse<TaskResponse>> =>
+    api.post('/tasks/enhance-description', { request: data, current_nodes: currentNodes }),
   
   stopTask: (taskId: string): Promise<AxiosResponse<{ message: string; task_id: string }>> =>
     api.post(`/tasks/${taskId}/stop`),

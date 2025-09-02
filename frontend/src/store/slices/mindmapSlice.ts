@@ -15,6 +15,11 @@ interface ExpandNodeRequest {
   max_new_nodes?: number;
 }
 
+interface EnhanceDescriptionRequest {
+  node_id: string;
+  enhancement_prompt?: string;
+}
+
 interface CreateMindMapRequest {
   title: string;
   description?: string;
@@ -72,6 +77,7 @@ interface MindmapState {
   expandingNodeId: string | null;
   generatingTasks: { [taskId: string]: Task };
   expandingTasks: { [nodeId: string]: string }; // nodeId -> taskId
+  enhancingTasks: { [nodeId: string]: string }; // nodeId -> taskId
   completedMindmapId: string | null;
 }
 
@@ -85,6 +91,7 @@ const initialState: MindmapState = {
   expandingNodeId: null,
   generatingTasks: {},
   expandingTasks: {},
+  enhancingTasks: {},
   completedMindmapId: null,
 };
 
@@ -264,6 +271,43 @@ export const expandNode = createAsyncThunk(
   }
 );
 
+export const enhanceNodeDescription = createAsyncThunk(
+  'mindmap/enhanceNodeDescription',
+  async ({
+    mindmapId,
+    nodeId,
+    enhancementPrompt,
+    currentNodes,
+    currentEdges
+  }: {
+    mindmapId: string;
+    nodeId: string;
+    enhancementPrompt?: string;
+    currentNodes: MindMapNode[];
+    currentEdges: MindMapEdge[];
+  }, { rejectWithValue }) => {
+    try {
+      // 只获取从根节点到目标节点的路径节点
+      const pathNodes = getNodePathToRoot(nodeId, currentNodes, currentEdges);
+      
+      // 使用任务API创建描述补充任务
+      const response = await taskAPI.createEnhanceDescriptionTask({
+        node_id: nodeId,
+        enhancement_prompt: enhancementPrompt
+      }, pathNodes);
+      
+      return {
+        taskId: response.data.task_id,
+        nodeId: nodeId,
+        mindmapId: mindmapId,
+        message: response.data.message
+      };
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || '创建描述补充任务失败');
+    }
+  }
+);
+
 export const pollExpandTaskStatus = createAsyncThunk(
   'mindmap/pollExpandTaskStatus',
   async ({ taskId, nodeId, mindmapId }: { taskId: string; nodeId: string; mindmapId: string }, { rejectWithValue, dispatch, getState }) => {
@@ -316,6 +360,58 @@ export const pollExpandTaskStatus = createAsyncThunk(
   }
 );
 
+export const pollEnhanceTaskStatus = createAsyncThunk(
+  'mindmap/pollEnhanceTaskStatus',
+  async ({ taskId, nodeId, mindmapId }: { taskId: string; nodeId: string; mindmapId: string }, { rejectWithValue, dispatch, getState }) => {
+    try {
+      const response = await taskAPI.getTask(taskId);
+      const task = response.data;
+      
+      if (task.status === 'completed') {
+        // 任务完成，处理描述补充结果
+        if (task.result && task.result.node_id && task.result.enhanced_description) {
+          // 更新节点的描述
+          dispatch(updateNodeDescription({
+            nodeId: task.result.node_id,
+            description: task.result.enhanced_description
+          }));
+          
+          // 保存更新后的思维导图到后端
+          const state = getState() as any;
+          const currentMindmap = state.mindmap.currentMindmap;
+          if (currentMindmap) {
+            try {
+              await dispatch(updateMindmap({
+                id: mindmapId,
+                data: {
+                  nodes: currentMindmap.nodes,
+                  edges: currentMindmap.edges
+                }
+              }));
+            } catch (error) {
+              console.warn('Failed to save enhanced mindmap to backend:', error);
+            }
+          }
+        } else {
+          // 如果任务完成但没有补充结果，重新获取思维导图
+          dispatch(fetchMindmapById(mindmapId));
+        }
+        return { taskId, nodeId, status: 'completed', result: task.result };
+      } else if (task.status === 'failed') {
+        return rejectWithValue(task.error_message || '描述补充任务失败');
+      } else {
+        // 任务还在进行中，继续轮询
+        setTimeout(() => {
+          dispatch(pollEnhanceTaskStatus({ taskId, nodeId, mindmapId }));
+        }, 2000);
+        return { taskId, nodeId, status: task.status };
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || '获取任务状态失败');
+    }
+  }
+);
+
 const mindmapSlice = createSlice({
   name: 'mindmap',
   initialState,
@@ -337,6 +433,14 @@ const mindmapSlice = createSlice({
       if (state.currentMindmap) {
         state.currentMindmap.nodes = [...state.currentMindmap.nodes, ...action.payload.nodes];
         state.currentMindmap.edges = [...state.currentMindmap.edges, ...action.payload.edges];
+      }
+    },
+    updateNodeDescription: (state, action: PayloadAction<{ nodeId: string; description: string }>) => {
+      if (state.currentMindmap) {
+        const nodeIndex = state.currentMindmap.nodes.findIndex(node => node.id === action.payload.nodeId);
+        if (nodeIndex !== -1) {
+          state.currentMindmap.nodes[nodeIndex].data.description = action.payload.description;
+        }
       }
     },
     clearError: (state) => {
@@ -506,6 +610,36 @@ const mindmapSlice = createSlice({
           state.expandingNodeId = null;
         }
         state.error = action.payload as string;
+      })
+      // Enhance node description
+      .addCase(enhanceNodeDescription.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(enhanceNodeDescription.fulfilled, (state, action) => {
+        const result = action.payload as any;
+        if (result && result.taskId && result.nodeId) {
+          // 记录描述补充任务
+          state.enhancingTasks[result.nodeId] = result.taskId;
+        }
+      })
+      .addCase(enhanceNodeDescription.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      // Poll enhance task status
+      .addCase(pollEnhanceTaskStatus.fulfilled, (state, action) => {
+        const result = action.payload as any;
+        if (result && result.status === 'completed') {
+          // 任务完成，清理补充状态
+          delete state.enhancingTasks[result.nodeId];
+        }
+      })
+      .addCase(pollEnhanceTaskStatus.rejected, (state, action) => {
+        // 轮询失败，清理补充状态
+        const enhancingNodeIds = Object.keys(state.enhancingTasks);
+        enhancingNodeIds.forEach(nodeId => {
+          delete state.enhancingTasks[nodeId];
+        });
+        state.error = action.payload as string;
       });
   },
 });
@@ -515,6 +649,7 @@ export const {
   updateCurrentMindmapNodes,
   updateCurrentMindmapEdges,
   addNodesToCurrentMindmap,
+  updateNodeDescription,
   clearError,
   clearCompletedMindmapId,
 } = mindmapSlice.actions;

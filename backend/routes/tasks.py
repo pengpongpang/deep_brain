@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from models.task import Task, TaskCreate, TaskType
-from models.mindmap import GenerateMindMapRequest, NodeExpansionRequest, ExpandNodeTaskRequest
+from models.mindmap import GenerateMindMapRequest, NodeExpansionRequest, ExpandNodeTaskRequest, NodeDescriptionEnhanceRequest, EnhanceDescriptionTaskRequest
 from services.task_service import task_service
 from utils.auth import get_current_active_user
 from models.user import User
@@ -85,6 +85,53 @@ async def create_expand_node_task(
         return {
             "task_id": task_id,
             "message": "节点扩展任务已创建，请轮询任务状态"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建任务失败: {str(e)}"
+        )
+
+@router.post("/enhance-description", response_model=dict)
+async def create_enhance_description_task(
+    task_request: EnhanceDescriptionTaskRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """创建节点描述补充任务"""
+    try:
+        request = task_request.request
+        current_nodes = task_request.current_nodes
+        
+        # 找到要补充描述的节点信息
+        target_node = next((node for node in current_nodes if node.get("id") == request.node_id), None)
+        node_label = target_node.get("data", {}).get("label", "未知节点") if target_node else "未知节点"
+        
+        # 前端已传递排序好的路径节点，直接使用
+        path_nodes = current_nodes
+        
+        task_data = TaskCreate(
+            task_type=TaskType.ENHANCE_DESCRIPTION,
+            input_data={
+                "request": request.dict(),
+                "current_nodes": path_nodes
+            },
+            user_id=str(current_user.id),
+            title=f"补充描述: {node_label}",
+            description=f"为节点'{node_label}'补充详细描述",
+            task_definition={
+                "type": "enhance_description",
+                "node_id": request.node_id,
+                "enhancement_prompt": request.enhancement_prompt,
+                "node_label": node_label
+            }
+        )
+        
+        task_id = await task_service.create_task(task_data)
+        
+        return {
+            "task_id": task_id,
+            "message": "节点描述补充任务已创建，请轮询任务状态"
         }
         
     except Exception as e:

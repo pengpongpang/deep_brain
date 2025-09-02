@@ -57,6 +57,8 @@ import {
   updateMindmap,
   expandNode,
   pollExpandTaskStatus,
+  enhanceNodeDescription,
+  pollEnhanceTaskStatus,
   updateCurrentMindmapNodes,
   updateCurrentMindmapEdges,
 } from '../../store/slices/mindmapSlice';
@@ -81,7 +83,7 @@ const MindMapEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { currentMindmap, isLoading, expandingTasks } = useSelector((state: RootState) => state.mindmap);
+  const { currentMindmap, isLoading, expandingTasks, enhancingTasks } = useSelector((state: RootState) => state.mindmap);
   const { expandingNodeId } = useSelector((state: RootState) => state.ui);
   
   // 使用Zustand store替代本地状态
@@ -104,9 +106,12 @@ const MindMapEditor: React.FC = () => {
   
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [expandDialogOpen, setExpandDialogOpen] = useState(false);
+  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
   const [addNodeDialogOpen, setAddNodeDialogOpen] = useState(false);
   const [nodeToExpand, setNodeToExpand] = useState<string | null>(null);
+  const [nodeToEnhance, setNodeToEnhance] = useState<string | null>(null);
   const [expansionTopic, setExpansionTopic] = useState('');
+  const [enhancementPrompt, setEnhancementPrompt] = useState('');
   const [newNodeTitle, setNewNodeTitle] = useState('');
   const [newNodeDescription, setNewNodeDescription] = useState('');
   const [parentNodeForNewNode, setParentNodeForNewNode] = useState<string | null>(null);
@@ -199,16 +204,20 @@ const MindMapEditor: React.FC = () => {
           if (!storeNode) return prevNode;
           
           const isExpanding = expandingTasks[prevNode.id] !== undefined;
+          const isEnhancing = enhancingTasks[prevNode.id] !== undefined;
           return {
             ...prevNode,
             data: {
               ...storeNode.data, // 使用store中的最新数据
               isExpanding,
+              isEnhancing,
               isDisabled: hasExpandingTasks,
               onEdit: handleEditNode,
               onDelete: handleDeleteNode,
               onAddChild: handleAddNode,
               onExpand: handleExpandNode,
+              onEnhanceDescription: handleEnhanceDescription,
+              onEditDescription: handleEditDescription,
               onToggleCollapse: handleToggleCollapse,
             },
           };
@@ -218,16 +227,20 @@ const MindMapEditor: React.FC = () => {
       // 节点数量变化时才完全重新创建
       const nodesWithCallbacks = visibleNodes.map(node => {
         const isExpanding = expandingTasks[node.id] !== undefined;
+        const isEnhancing = enhancingTasks[node.id] !== undefined;
         return {
           ...node,
           data: {
             ...node.data,
             isExpanding,
+            isEnhancing,
             isDisabled: hasExpandingTasks,
             onEdit: handleEditNode,
             onDelete: handleDeleteNode,
             onAddChild: handleAddNode,
             onExpand: handleExpandNode,
+            onEnhanceDescription: handleEnhanceDescription,
+            onEditDescription: handleEditDescription,
             onToggleCollapse: handleToggleCollapse,
           },
         };
@@ -236,7 +249,7 @@ const MindMapEditor: React.FC = () => {
     });
     
     setLocalEdges(edges);
-  }, [visibleNodes, edges, expandingTasks, handleToggleCollapse]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 处理选择变化
   const onSelectionChange = useCallback(
@@ -262,6 +275,82 @@ const MindMapEditor: React.FC = () => {
       setEditDialogOpen(true);
     }
   }, [visibleNodes, setSelectedNode]);
+
+  // 编辑描述
+  const handleEditDescription = useCallback((nodeId: string) => {
+    const node = visibleNodes.find(n => n.id === nodeId);
+    if (node) {
+      setSelectedNode(node);
+      setEditDialogOpen(true);
+    }
+  }, [visibleNodes, setSelectedNode]);
+
+  // 描述补充
+  const handleEnhanceDescription = useCallback(async (nodeId: string) => {
+    // 检查是否有未保存的更改
+    if (checkUnsavedChanges()) {
+      if (!currentMindmap || !id) {
+        dispatch(addNotification({
+          type: 'error',
+          message: '无法保存，思维导图数据不完整',
+        }));
+        return;
+      }
+      
+      try {
+        // 先保存更改
+        await dispatch(updateMindmap({
+          id,
+          data: {
+            nodes: rawNodes.map(node => ({
+              id: node.id,
+              label: node.data.label || 'Untitled',
+              type: node.type || 'custom',
+              position: node.position,
+              data: {
+                label: node.data.label || 'Untitled',
+                level: node.data.level || 0,
+                content: node.data.content || '',
+                description: node.data.description || '',
+                color: node.data.color || '#1976d2',
+                isRoot: node.data.isRoot || false,
+                parent_id: node.data.parent_id || null,
+                order: node.data.order || 0,
+              },
+              level: node.data.level || 0,
+              parent_id: node.data.parent_id || null,
+              isRoot: node.data.isRoot || false,
+              order: node.data.order || 0,
+            })),
+            edges: rawEdges.map(edge => ({
+              id: edge.id,
+              source: edge.source,
+              target: edge.target,
+              type: edge.type || 'smoothstep',
+              animated: edge.animated || false,
+            })),
+          },
+        })).unwrap();
+        
+        // 保存成功后更新快照
+        updateSnapshot(rawNodes, rawEdges);
+        
+        dispatch(addNotification({
+          type: 'success',
+          message: '已保存更改，开始补充描述',
+        }));
+      } catch (error) {
+        dispatch(addNotification({
+          type: 'error',
+          message: '保存失败，无法补充描述',
+        }));
+        return;
+      }
+    }
+    
+    setNodeToEnhance(nodeId);
+    setEnhanceDialogOpen(true);
+  }, [checkUnsavedChanges, dispatch, currentMindmap, id, rawNodes, rawEdges, updateSnapshot]);
 
   // 扩展节点
   const handleExpandNode = useCallback(async (nodeId: string) => {
@@ -695,6 +784,45 @@ const MindMapEditor: React.FC = () => {
     message: '您有未保存的更改，是否要保存？',
   });
 
+  // 描述补充提交
+  const handleEnhanceDescriptionSubmit = async () => {
+    if (!nodeToEnhance || !id || !currentMindmap) return;
+
+    try {
+      const result = await dispatch(enhanceNodeDescription({
+         mindmapId: id!,
+         nodeId: nodeToEnhance,
+         enhancementPrompt: enhancementPrompt || '',
+         currentNodes: currentMindmap.nodes,
+         currentEdges: currentMindmap.edges,
+       })).unwrap();
+      
+      // 立即关闭弹窗
+      setEnhanceDialogOpen(false);
+      setEnhancementPrompt('');
+      setNodeToEnhance(null);
+      
+      // 开始轮询任务状态
+      if (result && result.taskId) {
+        dispatch(pollEnhanceTaskStatus({
+          taskId: result.taskId,
+          nodeId: nodeToEnhance,
+          mindmapId: id!,
+        }));
+        
+        dispatch(addNotification({
+          type: 'info',
+          message: '描述补充任务已创建，正在处理中...',
+        }));
+      }
+    } catch (error) {
+      dispatch(addNotification({
+        type: 'error',
+        message: '创建描述补充任务失败，请重试',
+      }));
+    }
+  };
+
   // 扩展节点提交
   const handleExpandNodeSubmit = async () => {
     if (!nodeToExpand || !id || !currentMindmap) return;
@@ -869,6 +997,26 @@ const MindMapEditor: React.FC = () => {
               }
             }}
           />
+          <TextField
+            margin="dense"
+            label="详细描述"
+            fullWidth
+            multiline
+            rows={4}
+            variant="outlined"
+            value={selectedNode?.data.description || ''}
+            onChange={(e) => {
+              if (selectedNode) {
+                const updatedNode = {
+                  ...selectedNode,
+                  data: { ...selectedNode.data, description: e.target.value },
+                };
+                setSelectedNode(updatedNode);
+                // 实时更新store中的节点数据
+                updateNode(selectedNode.id, { description: e.target.value });
+              }
+            }}
+          />
         </DialogContent>
         <DialogActions>
           <Button 
@@ -909,6 +1057,38 @@ const MindMapEditor: React.FC = () => {
             disabled={expandingNodeId === nodeToExpand}
           >
             {expandingNodeId === nodeToExpand ? '扩展中...' : '开始扩展'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* AI描述补充对话框 */}
+      <Dialog open={enhanceDialogOpen} onClose={() => setEnhanceDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>AI描述补充</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="textSecondary" gutterBottom>
+            使用AI为选中的节点补充详细描述
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="补充上下文（可选）"
+            fullWidth
+            multiline
+            rows={3}
+            variant="outlined"
+            value={enhancementPrompt}
+            onChange={(e) => setEnhancementPrompt(e.target.value)}
+            placeholder="输入相关背景信息或特定要求，留空则自动补充"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEnhanceDialogOpen(false)}>取消</Button>
+          <Button
+            onClick={handleEnhanceDescriptionSubmit}
+            variant="contained"
+            disabled={enhancingTasks[nodeToEnhance || ''] !== undefined}
+          >
+            {enhancingTasks[nodeToEnhance || ''] !== undefined ? '补充中...' : '开始补充'}
           </Button>
         </DialogActions>
       </Dialog>

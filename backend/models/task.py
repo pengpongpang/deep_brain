@@ -15,6 +15,7 @@ class TaskStatus(str, Enum):
 class TaskType(str, Enum):
     GENERATE_MINDMAP = "generate_mindmap"
     EXPAND_NODE = "expand_node"
+    ENHANCE_DESCRIPTION = "enhance_description"
 
 class PyObjectId(ObjectId):
     @classmethod

@@ -126,6 +126,65 @@ class LLMService:
             print(f"Error expanding node: {e}")
             return {"nodes": [], "edges": []}
     
+    async def enhance_node_description(self, request, current_nodes: List[Dict]) -> Dict[str, Any]:
+        """补充节点描述"""
+        try:
+            # 找到要补充描述的节点
+            target_node = None
+            for node in current_nodes:
+                if node.get("id") == request.node_id:
+                    target_node = node
+                    break
+            
+            if not target_node:
+                raise ValueError("Node not found")
+            
+            prompt = self._create_description_enhancement_prompt(request, target_node, current_nodes)
+            print("description enhancement prompt: ")
+            print(prompt)
+            
+            # 在线程池中执行同步的OpenAI调用
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                self.executor,
+                lambda: self.client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "你是一个专业的内容补充助手。请根据用户的要求为指定节点补充详细的描述内容。返回的数据必须是有效的JSON格式，包含enhanced_description字段。"
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.7,
+                    response_format={"type": "json_object"},
+                    max_tokens=4000
+                )
+            )
+            
+            content = response.choices[0].message.content
+            print("description enhancement content: ")
+            print(content)
+            
+            # 提取JSON内容
+            json_content = self._extract_json_from_content(content)
+            enhancement_data = json.loads(json_content)
+            
+            return {
+                "node_id": request.node_id,
+                "enhanced_description": enhancement_data.get("enhanced_description", "")
+            }
+            
+        except Exception as e:
+            print(f"Error enhancing node description: {e}")
+            return {
+                "node_id": request.node_id,
+                "enhanced_description": ""
+            }
+    
     def _extract_json_from_content(self, content: str) -> str:
         """从内容中提取JSON字符串，处理markdown格式包裹的情况"""
         import re
@@ -232,7 +291,7 @@ class LLMService:
             hierarchy_info = f"当前思维导图只有根节点：{node_label}：{node_content}\n"
         
         prompt = f"""
-请扩展思维导图节点，生成一个包含两层的完整树结构。第一层生成最多不超过{min(request.max_children, 8)}个子节点，每个第一层子节点再生成2-4个第二层子节点。
+请扩展思维导图节点，生成一个包含一到两层的完整树结构。第一层生成最多不超过{min(request.max_children, 8)}个子节点，每个第一层子节点再生成最多不超过{min(request.max_children, 8)}第二层子节点。
 下面是当前思维导图分支的结构：
 {hierarchy_info}
 
@@ -281,6 +340,59 @@ class LLMService:
 4. 整体结构要逻辑清晰，层次分明
 4. 内容要有逻辑性和实用性，符合思维导图的层级逻辑
 5. 确保JSON格式正确
+"""
+        return prompt
+    
+    def _create_description_enhancement_prompt(self, request, target_node: Dict, current_nodes: List[Dict]) -> str:
+        """创建节点描述补充提示"""
+        
+        # 构建层级结构信息
+        hierarchy_info = ""
+        if current_nodes and len(current_nodes) > 1:
+            hierarchy_info = "当前思维导图分支结构：\n"
+            for i, node in enumerate(current_nodes):
+                node_data = node.get('data', {})
+                node_label = node_data.get('label', '未知节点')
+                node_content = node_data.get('content', '')
+                indent = "  " * i
+                if i == len(current_nodes) - 1:
+                    hierarchy_info += f"{indent}└─ {node_label}：{node_content} ← 当前要补充描述的节点\n"
+                else:
+                    hierarchy_info += f"{indent}├─ {node_label}：{node_content}\n"
+            hierarchy_info += "\n"
+        elif len(current_nodes) == 1:
+            node_data = current_nodes[0].get('data', {})
+            node_label = node_data.get('label', '未知节点')
+            node_content = node_data.get('content', '')
+            hierarchy_info = f"当前思维导图只有根节点：{node_label}：{node_content}\n"
+        
+        # 获取目标节点信息
+        target_data = target_node.get('data', {})
+        target_label = target_data.get('label', '未知节点')
+        current_content = target_data.get('content', '')
+        
+        prompt = f"""
+请为思维导图节点补充详细的描述内容。
+
+{hierarchy_info}
+目标节点：{target_label}
+当前描述：{current_content or '暂无描述'}
+
+补充要求：{request.enhancement_prompt or '请根据节点标题和上下文，为该节点补充详细、准确、有价值的描述内容'}
+补充上下文：{request.context or '无'}
+
+请返回JSON格式的数据：
+{{
+  "enhanced_description": "补充后的详细描述内容"
+}}
+
+要求：
+1. 描述内容要详细、准确、有价值
+2. 内容要与节点标题和上下文相关
+3. 描述长度控制在50-200字之间
+4. 内容要具有实用性和可读性
+5. 保持与思维导图整体主题的一致性
+6. 确保JSON格式正确
 """
         return prompt
     

@@ -15,26 +15,32 @@ import {
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
   Autorenew as AutorenewIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 
 interface CustomNodeData {
   label: string;
   content?: string;
+  description?: string;
   level: number;
   collapsed?: boolean;
   hasChildren?: boolean;
   isExpanding?: boolean;
+  isEnhancing?: boolean;
   isDisabled?: boolean;
   onEdit?: (nodeId: string) => void;
   onDelete?: (nodeId: string) => void;
   onAddChild?: (nodeId: string) => void;
   onExpand?: (nodeId: string) => void;
   onToggleCollapse?: (nodeId: string) => void;
+  onEnhanceDescription?: (nodeId: string) => void;
+  onEditDescription?: (nodeId: string) => void;
 }
 
 const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const open = Boolean(anchorEl);
 
   const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -62,6 +68,18 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const handleExpand = () => {
     if (data.isDisabled) return;
     data.onExpand?.(id);
+    handleMenuClose();
+  };
+
+  const handleEnhanceDescription = () => {
+    if (data.isDisabled) return;
+    data.onEnhanceDescription?.(id);
+    handleMenuClose();
+  };
+
+  const handleEditDescription = () => {
+    if (data.isDisabled) return;
+    data.onEditDescription?.(id);
     handleMenuClose();
   };
 
@@ -186,6 +204,139 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
               <ReactMarkdown>{data.content}</ReactMarkdown>
             </Box>
           )}
+          
+          {/* Description 字段显示 */}
+          {data.description && (
+            <Box sx={{ mt: 0.5 }}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0,0,0,0.05)',
+                  },
+                  borderRadius: '4px',
+                  padding: '2px 4px',
+                  margin: '-2px -4px',
+                }}
+                onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+              >
+                <IconButton
+                  size="small"
+                  sx={{
+                    width: '16px',
+                    height: '16px',
+                    padding: 0,
+                    minWidth: 'auto',
+                  }}
+                >
+                  {descriptionExpanded ? (
+                    <ExpandMoreIcon sx={{ fontSize: '12px' }} />
+                  ) : (
+                    <ChevronRightIcon sx={{ fontSize: '12px' }} />
+                  )}
+                </IconButton>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    fontSize: '9px', 
+                    color: '#888',
+                    ml: 0.5,
+                    fontWeight: 500,
+                  }}
+                >
+                  详细描述
+                </Typography>
+              </Box>
+              
+              {descriptionExpanded && (
+                <Box
+                  sx={{
+                    fontSize: '9px',
+                    color: '#555',
+                    wordBreak: 'break-word',
+                    lineHeight: 1.3,
+                    mt: 0.5,
+                    pl: 1,
+                    borderLeft: '2px solid #e0e0e0',
+                    backgroundColor: 'rgba(0,0,0,0.02)',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    '& p': {
+                      margin: 0,
+                      fontSize: 'inherit',
+                      color: 'inherit',
+                    },
+                    '& strong': {
+                      fontWeight: 'bold',
+                    },
+                    '& em': {
+                      fontStyle: 'italic',
+                    },
+                    '& code': {
+                      backgroundColor: 'rgba(0,0,0,0.1)',
+                      padding: '1px 2px',
+                      borderRadius: '2px',
+                      fontSize: '0.9em',
+                    },
+                  }}
+                >
+                  <ReactMarkdown>{data.description}</ReactMarkdown>
+                </Box>
+              )}
+            </Box>
+          )}
+          
+          {/* AI补充描述进行中的视觉反馈 */}
+          {data.isEnhancing && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                mt: 0.5,
+                fontSize: '9px',
+                color: '#1976d2',
+                animation: 'pulse 1.5s ease-in-out infinite',
+                '@keyframes pulse': {
+                  '0%': {
+                    opacity: 1,
+                  },
+                  '50%': {
+                    opacity: 0.5,
+                  },
+                  '100%': {
+                    opacity: 1,
+                  },
+                },
+              }}
+            >
+              <AutorenewIcon 
+                sx={{ 
+                  fontSize: '10px', 
+                  mr: 0.5, 
+                  animation: 'spin 2s linear infinite',
+                  '@keyframes spin': {
+                    '0%': {
+                      transform: 'rotate(0deg)',
+                    },
+                    '100%': {
+                      transform: 'rotate(360deg)',
+                    },
+                  },
+                }} 
+              />
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontSize: '9px',
+                  color: 'inherit',
+                }}
+              >
+                AI正在补充描述...
+              </Typography>
+            </Box>
+          )}
         </Box>
         
         {/* 扩展状态显示 */}
@@ -267,6 +418,16 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           <PsychologyIcon fontSize="small" sx={{ mr: 1 }} />
           {data.isExpanding ? 'AI扩展中...' : 'AI扩展'}
         </MenuItem>
+        <MenuItem onClick={handleEnhanceDescription} disabled={data.isDisabled || data.isEnhancing}>
+          <DescriptionIcon fontSize="small" sx={{ mr: 1 }} />
+          {data.isEnhancing ? 'AI补充中...' : 'AI补充描述'}
+        </MenuItem>
+        {data.description && (
+          <MenuItem onClick={handleEditDescription} disabled={data.isDisabled}>
+            <EditIcon fontSize="small" sx={{ mr: 1 }} />
+            编辑描述
+          </MenuItem>
+        )}
         <MenuItem onClick={handleDelete} disabled={data.isDisabled} sx={{ color: data.isDisabled ? 'text.disabled' : 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
           删除
@@ -296,10 +457,12 @@ export default memo(CustomNode, (prevProps, nextProps) => {
     prevProps.selected === nextProps.selected &&
     prevData.label === nextData.label &&
     prevData.content === nextData.content &&
+    prevData.description === nextData.description &&
     prevData.hasChildren === nextData.hasChildren &&
     prevData.collapsed === nextData.collapsed &&
     prevData.level === nextData.level &&
     prevData.isExpanding === nextData.isExpanding &&
+    prevData.isEnhancing === nextData.isEnhancing &&
     prevData.isDisabled === nextData.isDisabled
     // 不比较函数引用 (onEdit, onDelete, etc.) 因为它们不影响视觉渲染
   );

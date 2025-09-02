@@ -82,6 +82,15 @@ class ExpandNodeTaskRequest(BaseModel):
     request: NodeExpansionRequest
     current_nodes: List[Dict[str, Any]]
 
+class NodeDescriptionEnhanceRequest(BaseModel):
+    node_id: str
+    enhancement_prompt: Optional[str] = None
+    context: Optional[str] = None
+
+class EnhanceDescriptionTaskRequest(BaseModel):
+    request: NodeDescriptionEnhanceRequest
+    current_nodes: List[Dict[str, Any]]
+
 class GenerateMindMapRequest(BaseModel):
     topic: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
