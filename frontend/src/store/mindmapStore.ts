@@ -75,8 +75,8 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
   const nodePositions = new Map<string, { x: number; y: number }>();
   const minLeafSpacing = 60; // 增加叶子节点最小间距
   const minBranchSpacing = 150; // 增加有子节点的节点最小间距
-  const minLevelGap = 100; // 最小层级间距
-  const levelPadding = 50; // 层级间的额外间距
+  const minParentChildGap = 100; // 父子节点间的最小间距
+  const extraPadding = 50; // 额外间距
   
   // 动态计算节点高度的函数
   const calculateNodeHeight = (node: CustomNode): number => {
@@ -98,20 +98,6 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     const padding = 32; // 左右内边距
     return Math.max(baseWidth, Math.max(labelWidth, contentWidth, descriptionWidth) + padding);
   };
-  
-  // 计算每一层的最大节点宽度
-  const calculateLevelWidths = (): Map<number, number> => {
-    const levelWidths = new Map<number, number>();
-    nodes.forEach(node => {
-      const level = node.data.level || 0;
-      const nodeWidth = calculateNodeWidth(node);
-      const currentMax = levelWidths.get(level) || 0;
-      levelWidths.set(level, Math.max(currentMax, nodeWidth));
-    });
-    return levelWidths;
-  };
-  
-  const levelWidths = calculateLevelWidths();
 
   // 计算子树高度的函数
   const calculateSubtreeHeight = (nodeId: string): number => {
@@ -164,9 +150,10 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     let currentY = parentPos.y - totalHeight / 2;
     
     children.forEach((child, index) => {
-      // 动态计算层级间距：当前层最大宽度 + 最小间距 + 额外间距
-      const currentLevelWidth = levelWidths.get(level - 1) || 0;
-      const x = parentPos.x + currentLevelWidth + minLevelGap + levelPadding;
+      // 基于父节点实际宽度计算子节点位置
+      const parentNode = nodes.find(n => n.id === parentId);
+      const parentWidth = parentNode ? calculateNodeWidth(parentNode) : 120;
+      const x = parentPos.x + parentWidth + minParentChildGap + extraPadding;
       const adjustedHeight = adjustedHeights[index];
       
       // 将节点放在当前区域的中心位置
