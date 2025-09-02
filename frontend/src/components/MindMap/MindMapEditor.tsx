@@ -79,6 +79,85 @@ const SelectionHandler: React.FC<{
   return null;
 });
 
+// 视图状态管理组件 - 必须在ReactFlowProvider内部使用
+const ViewportHandler: React.FC<{
+  saveViewport: (viewport: { x: number; y: number; zoom: number }) => void;
+  getSavedViewport: () => { x: number; y: number; zoom: number } | null;
+  shouldRestoreViewport: boolean;
+  onViewportRestored: () => void;
+  isInitialLoad: boolean;
+}> = React.memo(({ saveViewport, getSavedViewport, shouldRestoreViewport, onViewportRestored, isInitialLoad }) => {
+  const reactFlowInstance = useReactFlow();
+  const [hasRestoredViewport, setHasRestoredViewport] = useState(false);
+  const [hasPerformedInitialFitView, setHasPerformedInitialFitView] = useState(false);
+
+  // 保存当前视图状态
+  const handleViewportChange = useCallback(() => {
+    const viewport = reactFlowInstance.getViewport();
+    saveViewport(viewport);
+  }, [reactFlowInstance, saveViewport]);
+
+  // 初始fitView逻辑
+  useEffect(() => {
+    if (isInitialLoad && !hasPerformedInitialFitView) {
+      // 延迟执行fitView，确保节点已经渲染完成
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.1 });
+        setHasPerformedInitialFitView(true);
+        console.log('Performed initial fitView');
+      }, 200);
+    }
+  }, [isInitialLoad, hasPerformedInitialFitView, reactFlowInstance]);
+
+  // 恢复视图状态
+  useEffect(() => {
+    if (shouldRestoreViewport && !hasRestoredViewport) {
+      const savedViewport = getSavedViewport();
+      if (savedViewport) {
+        // 增加延迟时间，确保节点和边都已经完全渲染完成
+        setTimeout(() => {
+          // 再次检查ReactFlow实例是否可用
+          if (reactFlowInstance && reactFlowInstance.getNodes().length > 0) {
+            reactFlowInstance.setViewport(savedViewport);
+            setHasRestoredViewport(true);
+            onViewportRestored();
+            console.log('Restored viewport:', savedViewport);
+          } else {
+            console.warn('ReactFlow instance not ready, skipping viewport restore');
+            setHasRestoredViewport(true);
+            onViewportRestored();
+          }
+        }, 300); // 增加延迟时间到300ms
+      } else {
+        setHasRestoredViewport(true);
+        onViewportRestored();
+      }
+    }
+  }, [shouldRestoreViewport, hasRestoredViewport, getSavedViewport, reactFlowInstance, onViewportRestored]);
+
+  // 监听视图变化并保存
+  useEffect(() => {
+    // 使用定时器定期保存视图状态，而不是依赖事件监听器
+    const interval = setInterval(() => {
+      handleViewportChange();
+    }, 500); // 每500ms保存一次视图状态
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [handleViewportChange]);
+
+  // 重置恢复状态当shouldRestoreViewport变为false时
+  useEffect(() => {
+    if (!shouldRestoreViewport && hasRestoredViewport) {
+      setHasRestoredViewport(false);
+      console.log('Reset viewport restore state');
+    }
+  }, [shouldRestoreViewport, hasRestoredViewport]);
+
+  return null;
+});
+
 const MindMapEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -102,6 +181,9 @@ const MindMapEditor: React.FC = () => {
     moveNode,
     reorderNodes,
     setSelectedNode,
+    saveViewport,
+    getSavedViewport,
+    clearSavedViewport,
   } = useMindmapStore();
   
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -133,6 +215,10 @@ const MindMapEditor: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<string | null>(null);
   const [nodesToDelete, setNodesToDelete] = useState<Node[]>([]);
+  
+  // 视图状态管理
+  const [shouldRestoreViewport, setShouldRestoreViewport] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // 快照系统
   const { createSnapshot, updateSnapshot, compareWithSnapshot } = useMindmapSnapshot();
@@ -141,6 +227,28 @@ const MindMapEditor: React.FC = () => {
   const checkUnsavedChanges = useCallback(() => {
     return compareWithSnapshot(rawNodes, rawEdges);
   }, [compareWithSnapshot, rawNodes, rawEdges]);
+  
+  // 视图恢复完成回调
+  const handleViewportRestored = useCallback(() => {
+    setShouldRestoreViewport(false);
+    console.log('Viewport restoration completed');
+  }, []);
+  
+  // 重置视图恢复状态
+  const resetViewportRestore = useCallback(() => {
+    setShouldRestoreViewport(false);
+  }, []);
+  
+  // 触发视图恢复
+  const triggerViewportRestore = useCallback(() => {
+    if (!isInitialLoad) {
+      // 延迟触发视图恢复，确保数据更新完成
+      setTimeout(() => {
+        setShouldRestoreViewport(true);
+        console.log('Triggering viewport restore');
+      }, 100);
+    }
+  }, [isInitialLoad]);
 
   // 加载思维导图数据
   useEffect(() => {
@@ -158,6 +266,9 @@ const MindMapEditor: React.FC = () => {
       const edgesToProcess = currentMindmap.edges || [];
       console.log('Initializing store with:', nodesToProcess.length, 'nodes and', edgesToProcess.length, 'edges');
       
+      // 重置视图恢复状态，避免重复恢复
+      resetViewportRestore();
+      
       // 检查是否有折叠状态需要保持（当有扩展任务正在进行时）
       const hasExpandingTasks = Object.keys(expandingTasks).length > 0;
       // 直接从 store 获取当前折叠状态，避免依赖循环
@@ -166,18 +277,27 @@ const MindMapEditor: React.FC = () => {
       
       // 初始化数据，根据情况决定是否保持折叠状态
       initializeData(nodesToProcess, edgesToProcess, shouldPreserveCollapsedState);
+      
+      // 如果不是初始加载，触发视图恢复
+      if (!isInitialLoad) {
+        triggerViewportRestore();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMindmap, expandingTasks]);
+  }, [currentMindmap, expandingTasks, isInitialLoad, triggerViewportRestore, resetViewportRestore]);
   
   // 在数据初始加载完成后创建快照（只在mindmap变化时创建，避免每次数据更新都重置快照）
   useEffect(() => {
-    if (rawNodes.length > 0 && currentMindmap) {
+    if (rawNodes.length > 0 && currentMindmap && isInitialLoad) {
       // 创建初始快照，使用store中的rawNodes和rawEdges
       createSnapshot(rawNodes, rawEdges);
       console.log('Created initial snapshot with', rawNodes.length, 'nodes and', rawEdges.length, 'edges');
+      
+      // 标记初始加载完成
+      setIsInitialLoad(false);
+      console.log('Initial load completed');
     }
-  }, [currentMindmap, createSnapshot]); // 移除rawNodes和rawEdges依赖，只在mindmap变化时创建快照
+  }, [currentMindmap, createSnapshot, rawNodes, rawEdges, isInitialLoad]); // 添加isInitialLoad依赖
   
   // 收折展开处理
   const handleToggleCollapse = useCallback((nodeId: string) => {
@@ -196,6 +316,32 @@ const MindMapEditor: React.FC = () => {
                Math.abs(prevNode.position.x - storeNode.position.x) > 1 ||
                Math.abs(prevNode.position.y - storeNode.position.y) > 1;
       });
+      
+      // 如果正在进行视图恢复，强制重新创建节点以确保状态一致性
+      if (shouldRestoreViewport) {
+        console.log('Force updating nodes during viewport restore');
+        const nodesWithCallbacks = visibleNodes.map(node => {
+          const isExpanding = expandingTasks[node.id] !== undefined;
+          const isEnhancing = enhancingTasks[node.id] !== undefined;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              isExpanding,
+              isEnhancing,
+              isDisabled: hasExpandingTasks,
+              onEdit: handleEditNode,
+              onDelete: handleDeleteNode,
+              onAddChild: handleAddNode,
+              onExpand: handleExpandNode,
+              onEnhanceDescription: handleEnhanceDescription,
+              onEditDescription: handleEditDescription,
+              onToggleCollapse: handleToggleCollapse,
+            },
+          };
+        });
+        return nodesWithCallbacks;
+      }
       
       // 如果节点数量没有变化且位置也没有显著变化，更新节点数据和扩展状态
       if (prevNodes.length === visibleNodes.length && prevNodes.length > 0 && !shouldUpdatePositions) {
@@ -249,7 +395,7 @@ const MindMapEditor: React.FC = () => {
     });
     
     setLocalEdges(edges);
-  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 处理选择变化
   const onSelectionChange = useCallback(
@@ -933,7 +1079,6 @@ const MindMapEditor: React.FC = () => {
             deleteKeyCode={null}
             preventScrolling={false}
             nodeOrigin={[0, 0.5]}
-            fitView
             attributionPosition="bottom-left"
             elevateNodesOnSelect={false}
             disableKeyboardA11y={true}
@@ -946,6 +1091,13 @@ const MindMapEditor: React.FC = () => {
             connectionMode={"loose" as any}
           >
             <SelectionHandler onSelectionChange={onSelectionChange} />
+            <ViewportHandler 
+              saveViewport={saveViewport}
+              getSavedViewport={getSavedViewport}
+              shouldRestoreViewport={shouldRestoreViewport}
+              onViewportRestored={handleViewportRestored}
+              isInitialLoad={isInitialLoad}
+            />
             <Background />
             <Controls />
           </ReactFlow>

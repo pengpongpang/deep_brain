@@ -25,6 +25,13 @@ interface CustomNode extends Node {
   data: NodeData;
 }
 
+// 视图状态接口
+interface ViewportState {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 // Store状态接口
 interface MindmapState {
   // 原始数据（包含所有节点和边，不受折叠状态影响）
@@ -41,6 +48,9 @@ interface MindmapState {
   // UI状态
   selectedNode: CustomNode | null;
   
+  // 视图状态
+  savedViewport: ViewportState | null;
+  
   // 操作方法
   initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => void;
   toggleCollapse: (nodeId: string) => void;
@@ -50,7 +60,11 @@ interface MindmapState {
   moveNode: (nodeId: string, newParentId: string) => void;
   reorderNodes: (nodeId: string, siblings: CustomNode[]) => void;
   setSelectedNode: (node: CustomNode | null) => void;
-  // 移除未保存状态管理
+  
+  // 视图状态管理
+  saveViewport: (viewport: ViewportState) => void;
+  getSavedViewport: () => ViewportState | null;
+  clearSavedViewport: () => void;
   
   // 内部方法
   updateVisibleData: () => void;
@@ -260,6 +274,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
   visibleEdges: [],
   collapsedNodes: new Set<string>(),
   selectedNode: null,
+  savedViewport: null,
   // 移除未保存状态重置
 
   // 初始化数据
@@ -552,6 +567,21 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
       visibleNodes: processedNodes,
       visibleEdges: visibleEdges,
     });
+  },
+
+  // 视图状态管理
+  saveViewport: (viewport: ViewportState) => {
+    set({ savedViewport: viewport });
+    console.log('Store: Saved viewport state:', viewport);
+  },
+
+  getSavedViewport: () => {
+    return get().savedViewport;
+  },
+
+  clearSavedViewport: () => {
+    set({ savedViewport: null });
+    console.log('Store: Cleared saved viewport state');
   },
 }));
 
