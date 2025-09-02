@@ -932,7 +932,7 @@ const MindMapEditor: React.FC = () => {
             panOnDrag={[1, 2]}
             deleteKeyCode={null}
             preventScrolling={false}
-            nodeOrigin={[0.5, 0.5]}
+            nodeOrigin={[0, 0.5]}
             fitView
             attributionPosition="bottom-left"
             elevateNodesOnSelect={false}
