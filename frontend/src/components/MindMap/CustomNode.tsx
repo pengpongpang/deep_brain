@@ -12,8 +12,8 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Psychology as PsychologyIcon,
-  ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
+  ChevronLeft as ChevronLeftIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   Autorenew as AutorenewIcon,
@@ -374,7 +374,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             {data.collapsed ? (
               <ChevronRightIcon fontSize="small" />
             ) : (
-              <ExpandMoreIcon fontSize="small" />
+              <ChevronLeftIcon fontSize="small" />
             )}
           </IconButton>
         )}
