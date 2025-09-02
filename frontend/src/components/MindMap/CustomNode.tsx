@@ -14,6 +14,8 @@ import {
   Psychology as PsychologyIcon,
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
   Autorenew as AutorenewIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
@@ -122,7 +124,8 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         border: `2px solid ${selected ? '#1976d2' : getNodeColor(data.level)}`,
         boxShadow: selected ? '0 4px 12px rgba(25, 118, 210, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
         minWidth: '120px',
-        maxWidth: '200px',
+        maxWidth: descriptionExpanded && data.description ? '300px' : '200px',
+        width: 'auto',
         position: 'relative',
         '&:hover': {
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -208,48 +211,25 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           {/* Description 字段显示 */}
           {data.description && (
             <Box sx={{ mt: 0.5 }}>
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+              <Box
+                onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
                   cursor: 'pointer',
+                  py: 0.25,
                   '&:hover': {
                     backgroundColor: 'rgba(0,0,0,0.05)',
+                    borderRadius: '4px',
                   },
-                  borderRadius: '4px',
-                  padding: '2px 4px',
-                  margin: '-2px -4px',
                 }}
-                onClick={() => setDescriptionExpanded(!descriptionExpanded)}
               >
-                <IconButton
-                  size="small"
-                  sx={{
-                    width: '16px',
-                    height: '16px',
-                    padding: 0,
-                    minWidth: 'auto',
-                  }}
-                >
-                  {descriptionExpanded ? (
-                    <ExpandMoreIcon sx={{ fontSize: '12px' }} />
-                  ) : (
-                    <ChevronRightIcon sx={{ fontSize: '12px' }} />
-                  )}
-                </IconButton>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    fontSize: '9px', 
-                    color: '#888',
-                    ml: 0.5,
-                    fontWeight: 500,
-                  }}
-                >
-                  详细描述
-                </Typography>
+                {descriptionExpanded ? 
+                  <KeyboardArrowUpIcon sx={{ fontSize: 14, color: '#666' }} /> : 
+                  <KeyboardArrowDownIcon sx={{ fontSize: 14, color: '#666' }} />
+                }
               </Box>
-              
               {descriptionExpanded && (
                 <Box
                   sx={{
@@ -263,6 +243,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                     backgroundColor: 'rgba(0,0,0,0.02)',
                     padding: '4px 6px',
                     borderRadius: '4px',
+                    maxWidth: '100%',
                     '& p': {
                       margin: 0,
                       fontSize: 'inherit',

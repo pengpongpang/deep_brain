@@ -73,17 +73,19 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
 
   // 计算每个节点的位置
   const nodePositions = new Map<string, { x: number; y: number }>();
-  const levelWidth = 250; // 增加层级间距
-  const minLeafSpacing = 25; // 叶子节点最小间距（约1-2个字符高度）
-  const minBranchSpacing = 80; // 有子节点的节点最小间距
+  const levelWidth = 280; // 增加层级间距
+  const minLeafSpacing = 40; // 叶子节点最小间距
+  const minBranchSpacing = 120; // 有子节点的节点最小间距
   
   // 动态计算节点高度的函数
   const calculateNodeHeight = (node: CustomNode): number => {
-    const baseHeight = 60; // 基础高度
+    const baseHeight = 80; // 增加基础高度
     const labelHeight = 20; // 标题行高度
     const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 25) * 15 : 0; // 内容高度估算
-    const padding = 24; // 上下内边距
-    return Math.max(baseHeight, labelHeight + contentHeight + padding);
+    // 考虑description展开时的额外高度
+    const descriptionHeight = node.data.description ? Math.ceil(node.data.description.length / 30) * 12 + 30 : 0;
+    const padding = 32; // 增加上下内边距
+    return Math.max(baseHeight, labelHeight + contentHeight + descriptionHeight + padding);
   };
 
   // 计算子树高度的函数
