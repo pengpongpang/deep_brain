@@ -335,7 +335,6 @@ const MindMapEditor: React.FC = () => {
               onAddChild: handleAddNode,
               onExpand: handleExpandNode,
               onEnhanceDescription: handleEnhanceDescription,
-              onEditDescription: handleEditDescription,
               onToggleCollapse: handleToggleCollapse,
             },
           };
@@ -359,12 +358,11 @@ const MindMapEditor: React.FC = () => {
               isEnhancing,
               isDisabled: hasExpandingTasks,
               onEdit: handleEditNode,
-              onDelete: handleDeleteNode,
-              onAddChild: handleAddNode,
-              onExpand: handleExpandNode,
-              onEnhanceDescription: handleEnhanceDescription,
-              onEditDescription: handleEditDescription,
-              onToggleCollapse: handleToggleCollapse,
+            onDelete: handleDeleteNode,
+            onAddChild: handleAddNode,
+            onExpand: handleExpandNode,
+            onEnhanceDescription: handleEnhanceDescription,
+            onToggleCollapse: handleToggleCollapse,
             },
           };
         });
@@ -386,7 +384,6 @@ const MindMapEditor: React.FC = () => {
             onAddChild: handleAddNode,
             onExpand: handleExpandNode,
             onEnhanceDescription: handleEnhanceDescription,
-            onEditDescription: handleEditDescription,
             onToggleCollapse: handleToggleCollapse,
           },
         };
@@ -422,14 +419,7 @@ const MindMapEditor: React.FC = () => {
     }
   }, [visibleNodes, setSelectedNode]);
 
-  // 编辑描述
-  const handleEditDescription = useCallback((nodeId: string) => {
-    const node = visibleNodes.find(n => n.id === nodeId);
-    if (node) {
-      setSelectedNode(node);
-      setEditDialogOpen(true);
-    }
-  }, [visibleNodes, setSelectedNode]);
+
 
   // 描述补充
   const handleEnhanceDescription = useCallback(async (nodeId: string) => {

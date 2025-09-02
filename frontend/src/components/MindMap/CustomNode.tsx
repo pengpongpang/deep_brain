@@ -39,7 +39,6 @@ interface CustomNodeData {
   onExpand?: (nodeId: string) => void;
   onToggleCollapse?: (nodeId: string) => void;
   onEnhanceDescription?: (nodeId: string) => void;
-  onEditDescription?: (nodeId: string) => void;
 }
 
 const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
@@ -81,11 +80,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
     handleMenuClose();
   };
 
-  const handleEditDescription = () => {
-    if (data.isDisabled) return;
-    data.onEditDescription?.(id);
-    handleMenuClose();
-  };
+
 
   const handleDelete = () => {
     if (data.isDisabled) return;
@@ -458,12 +453,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           <DescriptionIcon fontSize="small" sx={{ mr: 1 }} />
           {data.isEnhancing ? 'AI补充中...' : 'AI补充描述'}
         </MenuItem>
-        {data.description && (
-          <MenuItem onClick={handleEditDescription} disabled={data.isDisabled}>
-            <EditIcon fontSize="small" sx={{ mr: 1 }} />
-            编辑描述
-          </MenuItem>
-        )}
+
         <MenuItem onClick={handleDelete} disabled={data.isDisabled} sx={{ color: data.isDisabled ? 'text.disabled' : 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
           删除
