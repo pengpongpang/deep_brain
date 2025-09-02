@@ -170,8 +170,7 @@ class LLMService:
             print(content)
             
             # 提取JSON内容
-            json_content = self._extract_json_from_content(content)
-            enhancement_data = json.loads(json_content)
+            enhancement_data = json.loads(content)
             
             return {
                 "node_id": request.node_id,
@@ -383,7 +382,7 @@ class LLMService:
 
 请返回JSON格式的数据：
 {{
-  "enhanced_description": "补充后的详细描述内容"
+  "enhanced_description": "补充后的详细描述内容，这里必须是markdown格式"
 }}
 
 要求：

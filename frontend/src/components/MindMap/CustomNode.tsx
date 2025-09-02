@@ -178,32 +178,21 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           
           {data.content && (
             <Box
+              component="pre"
               sx={{
                 fontSize: '10px',
                 color: '#666',
                 wordBreak: 'break-word',
                 lineHeight: 1.2,
                 display: 'block',
-                '& p': {
-                  margin: 0,
-                  fontSize: 'inherit',
-                  color: 'inherit',
-                },
-                '& strong': {
-                  fontWeight: 'bold',
-                },
-                '& em': {
-                  fontStyle: 'italic',
-                },
-                '& code': {
-                  backgroundColor: 'rgba(0,0,0,0.1)',
-                  padding: '1px 3px',
-                  borderRadius: '2px',
-                  fontSize: '0.9em',
-                },
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                margin: 0,
+                padding: 0,
+                backgroundColor: 'transparent',
               }}
             >
-              <ReactMarkdown>{data.content}</ReactMarkdown>
+              {data.content}
             </Box>
           )}
           

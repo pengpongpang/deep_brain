@@ -73,19 +73,19 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
 
   // 计算每个节点的位置
   const nodePositions = new Map<string, { x: number; y: number }>();
-  const minLeafSpacing = 40; // 叶子节点最小间距
+  const minLeafSpacing = 16; // 叶子节点最小间距（约两个字符距离）
   const minBranchSpacing = 80; // 有子节点的节点最小间距
   const minParentChildGap = 60; // 父子节点间的最小间距
   const extraPadding = 20; // 额外间距
   
   // 动态计算节点高度的函数
   const calculateNodeHeight = (node: CustomNode): number => {
-    const baseHeight = 100; // 进一步增加基础高度
-    const labelHeight = 25; // 增加标题行高度
-    const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 20) * 18 : 0; // 调整内容高度估算
-    // 考虑description展开时的额外高度，给予更多空间
-    const descriptionHeight = node.data.description ? Math.ceil(node.data.description.length / 25) * 15 + 40 : 0;
-    const padding = 40; // 进一步增加上下内边距
+    const baseHeight = 50; // 减少基础高度
+    const labelHeight = 20; // 标题行高度
+    const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 20) * 16 : 0; // 内容高度估算
+    // 考虑description展开时的额外高度
+    const descriptionHeight = node.data.description ? Math.ceil(node.data.description.length / 25) * 14 + 20 : 0;
+    const padding = 16; // 减少上下内边距
     return Math.max(baseHeight, labelHeight + contentHeight + descriptionHeight + padding);
   };
   
@@ -105,19 +105,25 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     const children = nodes.filter(node => node.data?.parent_id === nodeId);
     
     if (children.length === 0) {
-      // 叶子节点：返回节点自身的高度加上小间距
-      const nodeHeight = node ? calculateNodeHeight(node) : 60;
-      return nodeHeight + minLeafSpacing;
+      // 叶子节点：只返回节点自身的高度
+      return node ? calculateNodeHeight(node) : 60;
     }
     
-    // 有子节点：计算所有子节点的子树高度总和
+    if (children.length === 1) {
+      // 单个子节点：只返回子节点的子树高度，不额外增加间距
+      return calculateSubtreeHeight(children[0].id);
+    }
+    
+    // 多个子节点：计算所有子节点的子树高度总和，并加上间距
     let totalHeight = 0;
     children.forEach(child => {
       totalHeight += calculateSubtreeHeight(child.id);
     });
     
-    // 确保有子节点的分支有足够间距
-    return Math.max(totalHeight, children.length * minBranchSpacing);
+    // 为多个子节点之间添加间距
+    totalHeight += (children.length - 1) * minLeafSpacing;
+    
+    return totalHeight;
   };
 
   // 处理根节点
@@ -137,14 +143,18 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     // 计算每个子节点的子树高度
     const childHeights = children.map(child => calculateSubtreeHeight(child.id));
     
-    // 根据节点类型调整间距
-    const adjustedHeights = childHeights.map((height, index) => {
-      const child = children[index];
-      const hasChildren = nodes.some(node => node.data?.parent_id === child.id);
-      const minSpacing = hasChildren ? minBranchSpacing : minLeafSpacing;
-      return Math.max(height, minSpacing);
-    });
-    const totalHeight = adjustedHeights.reduce((sum, height) => sum + height, 0);
+    // 如果只有一个子节点，直接使用其高度
+    let totalHeight;
+    let adjustedHeights;
+    
+    if (children.length === 1) {
+      adjustedHeights = childHeights;
+      totalHeight = childHeights[0];
+    } else {
+      // 多个子节点时，在子节点之间添加间距
+      adjustedHeights = childHeights;
+      totalHeight = childHeights.reduce((sum, height) => sum + height, 0) + (children.length - 1) * minLeafSpacing;
+    }
     
     // 计算起始Y位置，使子节点垂直居中
     let currentY = parentPos.y - totalHeight / 2;
@@ -154,10 +164,10 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
       const parentNode = nodes.find(n => n.id === parentId);
       const parentWidth = parentNode ? calculateNodeWidth(parentNode) : 120;
       const x = parentPos.x + parentWidth + minParentChildGap + extraPadding;
-      const adjustedHeight = adjustedHeights[index];
+      const childHeight = childHeights[index];
       
       // 将节点放在当前区域的中心位置
-      const y = currentY + adjustedHeight / 2;
+      const y = currentY + childHeight / 2;
       
       nodePositions.set(child.id, { x, y });
       
@@ -165,7 +175,10 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
       processChildren(child.id, level + 1);
       
       // 移动到下一个子节点的位置
-      currentY += adjustedHeight;
+      currentY += childHeight;
+      if (index < children.length - 1) {
+        currentY += minLeafSpacing; // 只在非最后一个子节点后添加间距
+      }
     });
   };
 
