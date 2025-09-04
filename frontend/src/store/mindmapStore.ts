@@ -95,13 +95,12 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
   
   // 动态计算节点高度的函数
   const calculateNodeHeight = (node: CustomNode): number => {
-    const baseHeight = 50; // 减少基础高度
+    const baseHeight = 50; // 基础高度
     const labelHeight = 20; // 标题行高度
     const contentHeight = node.data.content ? Math.ceil(node.data.content.length / 20) * 16 : 0; // 内容高度估算
-    // 考虑description展开时的额外高度
-    const descriptionHeight = node.data.description ? Math.ceil(node.data.description.length / 25) * 14 + 20 : 0;
-    const padding = 16; // 减少上下内边距
-    return Math.max(baseHeight, labelHeight + contentHeight + descriptionHeight + padding);
+    // description现在通过tooltip显示，不占据节点空间
+    const padding = 16; // 上下内边距
+    return Math.max(baseHeight, labelHeight + contentHeight + padding);
   };
   
   // 动态计算节点宽度的函数
@@ -109,9 +108,10 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
     const baseWidth = 120; // 最小宽度
     const labelWidth = (node.data.label?.length || 0) * 12; // 标题宽度估算
     const contentWidth = node.data.content ? Math.max(...node.data.content.split('\n').map(line => line.length)) * 8 : 0;
-    const descriptionWidth = node.data.description ? Math.max(...node.data.description.split('\n').map(line => line.length)) * 8 : 0;
+    // description现在通过tooltip显示，不影响节点宽度
+    const descriptionIconWidth = node.data.description ? 16 : 0; // description图标的宽度
     const padding = 32; // 左右内边距
-    return Math.max(baseWidth, Math.max(labelWidth, contentWidth, descriptionWidth) + padding);
+    return Math.max(baseWidth, Math.max(labelWidth, contentWidth) + descriptionIconWidth + padding);
   };
 
   // 计算子树高度的函数

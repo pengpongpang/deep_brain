@@ -6,18 +6,15 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Popover,
 } from '@mui/material';
 import {
+  MoreVert as MoreVertIcon,
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
-  Psychology as PsychologyIcon,
-  ChevronRight as ChevronRightIcon,
-  ChevronLeft as ChevronLeftIcon,
-  KeyboardArrowUp as KeyboardArrowUpIcon,
+  Edit as EditIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
-  Autorenew as AutorenewIcon,
-  Description as DescriptionIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
   UnfoldLess as UnfoldLessIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
@@ -45,12 +42,13 @@ interface CustomNodeData {
 
 const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [descriptionAnchorEl, setDescriptionAnchorEl] = useState<null | HTMLElement>(null);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const open = Boolean(anchorEl);
+  const descriptionOpen = Boolean(descriptionAnchorEl);
 
   const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
-    // 不阻止事件传播，让ReactFlow处理选择
     setAnchorEl(event.currentTarget);
   };
 
@@ -59,53 +57,38 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   };
 
   const handleEdit = () => {
-    if (data.isDisabled) return;
     data.onEdit?.(id);
     handleMenuClose();
   };
 
+  const handleDelete = () => {
+    data.onDelete?.(id);
+    handleMenuClose();
+  };
+
   const handleAddChild = () => {
-    if (data.isDisabled) return;
     data.onAddChild?.(id);
     handleMenuClose();
   };
 
   const handleExpand = () => {
-    if (data.isDisabled) return;
     data.onExpand?.(id);
     handleMenuClose();
   };
 
-  const handleEnhanceDescription = () => {
-    if (data.isDisabled) return;
-    data.onEnhanceDescription?.(id);
-    handleMenuClose();
-  };
-
-
-
-  const handleDelete = () => {
-    if (data.isDisabled) return;
-    data.onDelete?.(id);
-    handleMenuClose();
-  };
-
   const handleToggleCollapse = () => {
-    if (data.isDisabled) return;
     data.onToggleCollapse?.(id);
+    handleMenuClose();
   };
 
   const handleCollapseAllChildren = () => {
-    if (data.isDisabled) return;
     data.onCollapseAllChildren?.(id);
     handleMenuClose();
   };
 
-  const handleToggleCollapseClick = (event: React.MouseEvent) => {
-    // 只阻止这个特定按钮的事件传播，避免触发节点选择
-    event.stopPropagation();
-    if (data.isDisabled) return;
-    data.onToggleCollapse?.(id);
+  const handleEnhanceDescription = () => {
+    data.onEnhanceDescription?.(id);
+    handleMenuClose();
   };
 
   const getNodeColor = (level: number) => {
@@ -126,323 +109,263 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
         padding: '12px 16px',
         borderRadius: '8px',
         backgroundColor: 'white',
-        border: `2px solid ${selected ? '#1976d2' : getNodeColor(data.level)}`,
-        boxShadow: selected ? '0 4px 12px rgba(25, 118, 210, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+        border: selected ? `2px solid ${getNodeColor(data.level)}` : '1px solid #e0e0e0',
+        boxShadow: selected ? 3 : 1,
         minWidth: '120px',
-        width: 'fit-content',
+        maxWidth: '300px',
         position: 'relative',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease-in-out',
         '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          boxShadow: 2,
+          borderColor: getNodeColor(data.level),
         },
       }}
     >
-      {data.level > 0 && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={{
-            background: getNodeColor(data.level),
-            width: '8px',
-            height: '8px',
-          }}
-        />
-      )}
-      
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ flex: 1 }}>
-          <Box
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{
+          background: getNodeColor(data.level),
+          width: '8px',
+          height: '8px',
+          border: 'none',
+        }}
+      />
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography
+            variant="body2"
             sx={{
-              fontWeight: data.level === 0 ? 'bold' : 'normal',
-              fontSize: data.level === 0 ? '14px' : '12px',
-              color: '#333',
-              wordBreak: 'break-word',
+              fontWeight: 600,
+              color: getNodeColor(data.level),
+              fontSize: '14px',
               lineHeight: 1.3,
-              mb: data.content ? 0.5 : 0,
-              '& p': {
-                margin: 0,
-                fontSize: 'inherit',
-                fontWeight: 'inherit',
-                color: 'inherit',
-              },
-              '& strong': {
-                fontWeight: 'bold',
-              },
-              '& em': {
-                fontStyle: 'italic',
-              },
-              '& code': {
-                backgroundColor: 'rgba(0,0,0,0.1)',
-                padding: '2px 4px',
-                borderRadius: '3px',
-                fontSize: '0.9em',
-              },
+              wordBreak: 'break-word',
+              flex: 1,
             }}
           >
-            <ReactMarkdown
-              components={{
-                code({ className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const isInline = !match;
-                  return !isInline ? (
-                    <SyntaxHighlighter
-                      style={tomorrow as any}
-                      language={match[1]}
-                      PreTag="div"
-                      customStyle={{
-                        fontSize: '10px',
-                        margin: '2px 0',
-                        padding: '2px',
-                        borderRadius: '3px',
-                        backgroundColor: '#2d3748',
-                      } as any}
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {data.label}
-            </ReactMarkdown>
-          </Box>
-          
-          {data.content && (
-            <Box
-              component="pre"
-              sx={{
-                fontSize: '10px',
-                color: '#666',
-                wordBreak: 'break-word',
-                lineHeight: 1.2,
-                display: 'block',
-                fontFamily: 'monospace',
-                whiteSpace: 'pre-wrap',
-                margin: 0,
-                padding: 0,
-                backgroundColor: 'transparent',
-              }}
-            >
-              {data.content}
-            </Box>
-          )}
-          
-          {/* Description 字段显示 */}
-          {data.description && (
-            <Box sx={{ mt: 0.5 }}>
-              <Box
-                onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  py: 0.25,
-                  '&:hover': {
-                    backgroundColor: 'rgba(0,0,0,0.05)',
-                    borderRadius: '4px',
-                  },
-                }}
-              >
-                {descriptionExpanded ? 
-                  <KeyboardArrowUpIcon sx={{ fontSize: 14, color: '#666' }} /> : 
-                  <KeyboardArrowDownIcon sx={{ fontSize: 14, color: '#666' }} />
-                }
-              </Box>
-              {descriptionExpanded && (
-                <Box
-                  sx={{
-                    fontSize: '9px',
-                    color: '#555',
-                    wordBreak: 'break-word',
-                    lineHeight: 1.3,
-                    mt: 0.5,
-                    borderLeft: '2px solid #e0e0e0',
-                    backgroundColor: 'rgba(0,0,0,0.02)',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    maxWidth: '100%',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    overflow: 'hidden',
-                    overflowWrap: 'break-word',
-                    hyphens: 'auto',
-                    '& p': {
-                      margin: 0,
-                      fontSize: 'inherit',
-                      color: 'inherit',
-                      wordBreak: 'break-word',
-                      overflowWrap: 'break-word',
-                    },
-                    '& strong': {
-                      fontWeight: 'bold',
-                    },
-                    '& em': {
-                      fontStyle: 'italic',
-                    },
-                    '& code': {
-                      backgroundColor: 'rgba(0,0,0,0.1)',
-                      padding: '1px 2px',
-                      borderRadius: '2px',
-                      fontSize: '0.9em',
-                      wordBreak: 'break-all',
-                    },
-                  }}
-                >
-                  <ReactMarkdown
-                    components={{
-                      code({ className, children, ...props }: any) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        const isInline = !match;
-                        return !isInline ? (
-                          <SyntaxHighlighter
-                            style={tomorrow as any}
-                            language={match[1]}
-                            PreTag="div"
-                            customStyle={{
-                              fontSize: '8px',
-                              margin: '4px 0',
-                              padding: '4px',
-                              borderRadius: '3px',
-                              backgroundColor: '#2d3748',
-                            } as any}
-                          >
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        );
-                      },
-                    }}
-                  >
-                    {data.description}
-                  </ReactMarkdown>
-                </Box>
-              )}
-            </Box>
-          )}
-          
-          {/* AI补充描述进行中的视觉反馈 */}
-          {data.isEnhancing && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                mt: 0.5,
-                fontSize: '9px',
-                color: '#1976d2',
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': {
-                  '0%': {
-                    opacity: 1,
-                  },
-                  '50%': {
-                    opacity: 0.5,
-                  },
-                  '100%': {
-                    opacity: 1,
-                  },
-                },
-              }}
-            >
-              <AutorenewIcon 
-                sx={{ 
-                  fontSize: '10px', 
-                  mr: 0.5, 
-                  animation: 'spin 2s linear infinite',
-                  '@keyframes spin': {
-                    '0%': {
-                      transform: 'rotate(0deg)',
-                    },
-                    '100%': {
-                      transform: 'rotate(360deg)',
-                    },
-                  },
-                }} 
-              />
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  fontSize: '9px',
-                  color: 'inherit',
-                }}
-              >
-                AI正在补充描述...
-              </Typography>
-            </Box>
-          )}
+            {data.label}
+          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
+             <IconButton
+               size="small"
+               onClick={handleContextMenu}
+               disabled={data.isDisabled}
+               sx={{
+                 width: 20,
+                 height: 20,
+                 color: 'text.secondary',
+                 '&:hover': {
+                   backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                 },
+               }}
+             >
+               <MoreVertIcon sx={{ fontSize: 16 }} />
+             </IconButton>
+           </Box>
         </Box>
-        
-        {/* 扩展状态显示 */}
-        {data.isExpanding && (
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-            <AutorenewIcon 
-              fontSize="small" 
-              sx={{ 
-                animation: 'spin 1s linear infinite',
-                color: '#1976d2',
-                '@keyframes spin': {
-                  '0%': {
-                    transform: 'rotate(0deg)',
-                  },
-                  '100%': {
-                    transform: 'rotate(360deg)',
-                  },
-                },
-              }} 
-            />
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                fontSize: '10px', 
-                color: '#1976d2', 
-                ml: 0.5 
-              }}
-            >
-              扩展中
-            </Typography>
-          </Box>
-        )}
-        
-        {data.hasChildren && (
-          <IconButton
-            size="small"
-            onClick={handleToggleCollapseClick}
-            disabled={data.isDisabled}
+
+        {data.content && (
+          <Box
+            component="pre"
             sx={{
-              width: '20px',
-              height: '20px',
+              fontSize: '10px',
+              color: '#666',
+              wordBreak: 'break-word',
+              lineHeight: 1.2,
+              display: 'block',
+              fontFamily: 'monospace',
+              whiteSpace: 'pre-wrap',
+              margin: 0,
               padding: 0,
-              minWidth: 'auto',
-              ml: 1,
-              opacity: data.isDisabled ? 0.5 : 1,
             }}
           >
-            {data.collapsed ? (
-              <ChevronRightIcon fontSize="small" />
-            ) : (
-              <ChevronLeftIcon fontSize="small" />
-            )}
-          </IconButton>
+            {data.content}
+          </Box>
         )}
       </Box>
 
+      {/* 子节点展开/折叠按钮 - 放在节点右边框居中 */}
+      {data.hasChildren && (
+        <Box
+          sx={{
+            position: 'absolute',
+            right: -10,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 1,
+          }}
+        >
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleCollapse();
+            }}
+            disabled={data.isDisabled}
+            sx={{
+              width: 20,
+              height: 20,
+              backgroundColor: 'white',
+              border: '1px solid',
+              borderColor: data.collapsed ? 'divider' : getNodeColor(data.level),
+              color: data.collapsed ? 'text.secondary' : getNodeColor(data.level),
+              '&:hover': {
+                backgroundColor: data.collapsed ? 'grey.100' : 'primary.light',
+                color: data.collapsed ? 'text.primary' : 'white',
+                borderColor: getNodeColor(data.level),
+              },
+            }}
+          >
+            {data.collapsed ? (
+              <Box
+                sx={{
+                  width: 0,
+                  height: 0,
+                  borderLeft: '4px solid transparent',
+                  borderRight: '4px solid transparent',
+                  borderTop: '6px solid currentColor',
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 0,
+                  height: 0,
+                  borderTop: '4px solid transparent',
+                  borderBottom: '4px solid transparent',
+                  borderLeft: '6px solid currentColor',
+                }}
+              />
+            )}
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Description 展开/折叠按钮 - 放在节点下边框居中 */}
+       {data.description && (
+         <Box
+           sx={{
+             position: 'absolute',
+             bottom: -10,
+             left: '50%',
+             transform: 'translateX(-50%)',
+             zIndex: 1,
+           }}
+         >
+           <IconButton
+             size="small"
+             onClick={(event) => {
+               event.stopPropagation();
+               if (descriptionExpanded) {
+                 setDescriptionAnchorEl(null);
+                 setDescriptionExpanded(false);
+               } else {
+                 setDescriptionAnchorEl(event.currentTarget as unknown as HTMLElement);
+                 setDescriptionExpanded(true);
+               }
+             }}
+             disabled={data.isDisabled}
+             sx={{
+               width: 20,
+               height: 20,
+               backgroundColor: 'white',
+               border: '1px solid',
+               borderColor: descriptionExpanded ? 'primary.main' : 'divider',
+               color: descriptionExpanded ? 'primary.main' : 'text.secondary',
+               '&:hover': {
+                 backgroundColor: 'primary.light',
+                 color: 'white',
+                 borderColor: 'primary.main',
+               },
+             }}
+           >
+             {descriptionExpanded ? (
+               <KeyboardArrowUpIcon sx={{ fontSize: 16 }} />
+             ) : (
+               <KeyboardArrowDownIcon sx={{ fontSize: 16 }} />
+             )}
+           </IconButton>
+         </Box>
+       )}
+
+      {/* Description Popover */}
+      {data.description && (
+        <Popover
+           open={descriptionOpen}
+           anchorEl={descriptionAnchorEl}
+           onClose={() => {
+             setDescriptionAnchorEl(null);
+             setDescriptionExpanded(false);
+           }}
+           anchorOrigin={{
+             vertical: 'bottom',
+             horizontal: 'center',
+           }}
+           transformOrigin={{
+             vertical: 'top',
+             horizontal: 'center',
+           }}
+          slotProps={{
+            paper: {
+              style: {
+                zIndex: 9999,
+              },
+            },
+          }}
+          PaperProps={{
+            sx: {
+              maxWidth: 400,
+              maxHeight: 300,
+              overflow: 'auto',
+              p: 2,
+              boxShadow: 3,
+              border: '1px solid rgba(0, 0, 0, 0.12)',
+              borderRadius: 2,
+            },
+          }}
+        >
+          <ReactMarkdown
+             components={{
+               code: ({ className, children, ...props }: any) => {
+                 const match = /language-(\w+)/.exec(className || '');
+                 const isInline = !match;
+                 return !isInline ? (
+                   <SyntaxHighlighter
+                     style={tomorrow as any}
+                     language={match[1]}
+                     PreTag="div"
+                     {...props}
+                   >
+                     {String(children).replace(/\n$/, '')}
+                   </SyntaxHighlighter>
+                 ) : (
+                   <code className={className} {...props}>
+                     {children}
+                   </code>
+                 );
+               },
+             }}
+          >
+            {data.description}
+          </ReactMarkdown>
+        </Popover>
+      )}
+
       <Menu
         anchorEl={anchorEl}
-        open={open && !data.isDisabled}
+        open={open}
         onClose={handleMenuClose}
         anchorOrigin={{
           vertical: 'bottom',
-          horizontal: 'left',
+          horizontal: 'right',
         }}
         transformOrigin={{
           vertical: 'top',
-          horizontal: 'left',
+          horizontal: 'right',
         }}
       >
         <MenuItem onClick={handleEdit} disabled={data.isDisabled}>
@@ -453,21 +376,103 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           <AddIcon fontSize="small" sx={{ mr: 1 }} />
           添加子节点
         </MenuItem>
-        <MenuItem onClick={handleExpand} disabled={data.isDisabled || data.isExpanding}>
-          <PsychologyIcon fontSize="small" sx={{ mr: 1 }} />
-          {data.isExpanding ? 'AI扩展中...' : 'AI扩展'}
-        </MenuItem>
-        <MenuItem onClick={handleEnhanceDescription} disabled={data.isDisabled || data.isEnhancing}>
-          <DescriptionIcon fontSize="small" sx={{ mr: 1 }} />
-          {data.isEnhancing ? 'AI补充中...' : 'AI补充描述'}
-        </MenuItem>
+        {data.hasChildren && !data.collapsed && (
+          <MenuItem onClick={handleExpand} disabled={data.isDisabled || data.isExpanding}>
+            {data.isExpanding ? (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    width: 16,
+                    height: 16,
+                    border: '2px solid #e0e0e0',
+                    borderTop: '2px solid #1976d2',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    mr: 1,
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
+                  }}
+                />
+                扩展中...
+              </Box>
+            ) : (
+              <>
+                <AddIcon fontSize="small" sx={{ mr: 1 }} />
+                AI扩展
+              </>
+            )}
+          </MenuItem>
+        )}
         {data.hasChildren && (
+          <MenuItem onClick={handleToggleCollapse} disabled={data.isDisabled}>
+            {data.collapsed ? (
+              <>
+                <Box
+                  sx={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '4px solid transparent',
+                    borderRight: '4px solid transparent',
+                    borderTop: '6px solid currentColor',
+                    mr: 1,
+                  }}
+                />
+                展开子节点
+              </>
+            ) : (
+              <>
+                <Box
+                  sx={{
+                    width: 0,
+                    height: 0,
+                    borderTop: '4px solid transparent',
+                    borderBottom: '4px solid transparent',
+                    borderLeft: '6px solid currentColor',
+                    mr: 1,
+                  }}
+                />
+                折叠子节点
+              </>
+            )}
+          </MenuItem>
+        )}
+        {data.hasChildren && !data.collapsed && (
           <MenuItem onClick={handleCollapseAllChildren} disabled={data.isDisabled}>
             <UnfoldLessIcon fontSize="small" sx={{ mr: 1 }} />
             折叠全部
           </MenuItem>
         )}
-
+        {data.description && (
+          <MenuItem onClick={handleEnhanceDescription} disabled={data.isDisabled || data.isEnhancing}>
+            {data.isEnhancing ? (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    width: 16,
+                    height: 16,
+                    border: '2px solid #e0e0e0',
+                    borderTop: '2px solid #1976d2',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    mr: 1,
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
+                  }}
+                />
+                增强中...
+              </Box>
+            ) : (
+              <>
+                <EditIcon fontSize="small" sx={{ mr: 1 }} />
+                AI增强描述
+              </>
+            )}
+          </MenuItem>
+        )}
         <MenuItem onClick={handleDelete} disabled={data.isDisabled} sx={{ color: data.isDisabled ? 'text.disabled' : 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
           删除
@@ -481,6 +486,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           background: getNodeColor(data.level),
           width: '8px',
           height: '8px',
+          border: 'none',
         }}
       />
     </Box>
@@ -488,22 +494,17 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 };
 
 export default memo(CustomNode, (prevProps, nextProps) => {
-  // 自定义比较函数，只比较影响渲染的数据属性，忽略函数引用
-  const prevData = prevProps.data;
-  const nextData = nextProps.data;
-  
   return (
     prevProps.id === nextProps.id &&
-    prevProps.selected === nextProps.selected &&
-    prevData.label === nextData.label &&
-    prevData.content === nextData.content &&
-    prevData.description === nextData.description &&
-    prevData.hasChildren === nextData.hasChildren &&
-    prevData.collapsed === nextData.collapsed &&
-    prevData.level === nextData.level &&
-    prevData.isExpanding === nextData.isExpanding &&
-    prevData.isEnhancing === nextData.isEnhancing &&
-    prevData.isDisabled === nextData.isDisabled
-    // 不比较函数引用 (onEdit, onDelete, etc.) 因为它们不影响视觉渲染
+    prevProps.data.label === nextProps.data.label &&
+    prevProps.data.content === nextProps.data.content &&
+    prevProps.data.description === nextProps.data.description &&
+    prevProps.data.level === nextProps.data.level &&
+    prevProps.data.collapsed === nextProps.data.collapsed &&
+    prevProps.data.hasChildren === nextProps.data.hasChildren &&
+    prevProps.data.isExpanding === nextProps.data.isExpanding &&
+    prevProps.data.isEnhancing === nextProps.data.isEnhancing &&
+    prevProps.data.isDisabled === nextProps.data.isDisabled &&
+    prevProps.selected === nextProps.selected
   );
 });
