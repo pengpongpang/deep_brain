@@ -88,7 +88,7 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
 
   // 计算每个节点的位置
   const nodePositions = new Map<string, { x: number; y: number }>();
-  const minLeafSpacing = 16; // 叶子节点最小间距（约两个字符距离）
+  const minLeafSpacing = 40; // 叶子节点最小间距（约两个字符距离）
   const minBranchSpacing = 80; // 有子节点的节点最小间距
   const minParentChildGap = 60; // 父子节点间的最小间距
   const extraPadding = 20; // 额外间距
