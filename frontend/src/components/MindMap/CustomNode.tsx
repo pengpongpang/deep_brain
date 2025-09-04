@@ -312,19 +312,15 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           slotProps={{
             paper: {
               style: {
+                maxWidth: 400,
+                maxHeight: 300,
+                overflow: 'auto',
+                padding: '0 24px',
+                boxShadow: '0px 5px 5px -3px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12)',
+                border: '1px solid rgba(0, 0, 0, 0.12)',
+                borderRadius: '8px',
                 zIndex: 9999,
               },
-            },
-          }}
-          PaperProps={{
-            sx: {
-              maxWidth: 400,
-              maxHeight: 300,
-              overflow: 'auto',
-              p: 3,
-              boxShadow: 3,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
-              borderRadius: 2,
             },
           }}
         >
