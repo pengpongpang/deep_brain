@@ -336,6 +336,9 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     const allChildrenIds = getAllChildren(nodeId);
     console.log('Store: Found children to collapse:', allChildrenIds);
     
+    // 将当前节点也添加到折叠状态
+    newCollapsedNodes.add(nodeId);
+    
     // 将所有子节点添加到折叠状态
     allChildrenIds.forEach(childId => {
       newCollapsedNodes.add(childId);

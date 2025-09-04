@@ -401,40 +401,8 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             )}
           </MenuItem>
         )}
+
         {data.hasChildren && (
-          <MenuItem onClick={handleToggleCollapse} disabled={data.isDisabled}>
-            {data.collapsed ? (
-              <>
-                <Box
-                  sx={{
-                    width: 0,
-                    height: 0,
-                    borderLeft: '4px solid transparent',
-                    borderRight: '4px solid transparent',
-                    borderTop: '6px solid currentColor',
-                    mr: 1,
-                  }}
-                />
-                展开子节点
-              </>
-            ) : (
-              <>
-                <Box
-                  sx={{
-                    width: 0,
-                    height: 0,
-                    borderTop: '4px solid transparent',
-                    borderBottom: '4px solid transparent',
-                    borderLeft: '6px solid currentColor',
-                    mr: 1,
-                  }}
-                />
-                折叠子节点
-              </>
-            )}
-          </MenuItem>
-        )}
-        {data.hasChildren && !data.collapsed && (
           <MenuItem onClick={handleCollapseAllChildren} disabled={data.isDisabled}>
             <UnfoldLessIcon fontSize="small" sx={{ mr: 1 }} />
             折叠全部
