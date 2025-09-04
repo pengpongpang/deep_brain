@@ -225,9 +225,9 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                 sx={{
                   width: 0,
                   height: 0,
-                  borderLeft: '4px solid transparent',
-                  borderRight: '4px solid transparent',
-                  borderTop: '6px solid currentColor',
+                  borderTop: '4px solid transparent',
+                  borderBottom: '4px solid transparent',
+                  borderLeft: '6px solid currentColor',
                 }}
               />
             ) : (
@@ -237,7 +237,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                   height: 0,
                   borderTop: '4px solid transparent',
                   borderBottom: '4px solid transparent',
-                  borderLeft: '6px solid currentColor',
+                  borderRight: '6px solid currentColor',
                 }}
               />
             )}
@@ -321,7 +321,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
               maxWidth: 400,
               maxHeight: 300,
               overflow: 'auto',
-              p: 2,
+              p: 3,
               boxShadow: 3,
               border: '1px solid rgba(0, 0, 0, 0.12)',
               borderRadius: 2,
