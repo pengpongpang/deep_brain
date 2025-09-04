@@ -176,6 +176,7 @@ const MindMapEditor: React.FC = () => {
     initializeData,
     toggleCollapse,
     collapseAllChildren,
+    expandAllChildren,
     addNode,
     updateNode,
     deleteNode,
@@ -309,6 +310,11 @@ const MindMapEditor: React.FC = () => {
   const handleCollapseAllChildren = useCallback((nodeId: string) => {
     collapseAllChildren(nodeId);
   }, [collapseAllChildren]);
+
+  // 展开所有子节点
+  const handleExpandAllChildren = useCallback((nodeId: string) => {
+    expandAllChildren(nodeId);
+  }, [expandAllChildren]);
   
   // 同步store中的数据到本地状态
   useEffect(() => {
@@ -370,6 +376,7 @@ const MindMapEditor: React.FC = () => {
             onEnhanceDescription: handleEnhanceDescription,
             onToggleCollapse: handleToggleCollapse,
               onCollapseAllChildren: handleCollapseAllChildren,
+              onExpandAllChildren: handleExpandAllChildren,
             },
           };
         });
@@ -393,6 +400,7 @@ const MindMapEditor: React.FC = () => {
             onEnhanceDescription: handleEnhanceDescription,
             onToggleCollapse: handleToggleCollapse,
             onCollapseAllChildren: handleCollapseAllChildren,
+            onExpandAllChildren: handleExpandAllChildren,
           },
         };
       });
@@ -400,7 +408,7 @@ const MindMapEditor: React.FC = () => {
     });
     
     setLocalEdges(edges);
-  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, handleCollapseAllChildren, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, handleCollapseAllChildren, handleExpandAllChildren, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 处理选择变化
   const onSelectionChange = useCallback(
@@ -669,6 +677,7 @@ const MindMapEditor: React.FC = () => {
         onExpand: handleExpandNode,
         onToggleCollapse: handleToggleCollapse,
         onCollapseAllChildren: handleCollapseAllChildren,
+        onExpandAllChildren: handleExpandAllChildren,
       },
     };
     

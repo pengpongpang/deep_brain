@@ -16,6 +16,7 @@ import {
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
   UnfoldLess as UnfoldLessIcon,
+  UnfoldMore as UnfoldMoreIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -37,6 +38,7 @@ interface CustomNodeData {
   onExpand?: (nodeId: string) => void;
   onToggleCollapse?: (nodeId: string) => void;
   onCollapseAllChildren?: (nodeId: string) => void;
+  onExpandAllChildren?: (nodeId: string) => void;
   onEnhanceDescription?: (nodeId: string) => void;
 }
 
@@ -83,6 +85,11 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
 
   const handleCollapseAllChildren = () => {
     data.onCollapseAllChildren?.(id);
+    handleMenuClose();
+  };
+
+  const handleExpandAllChildren = () => {
+    data.onExpandAllChildren?.(id);
     handleMenuClose();
   };
 
@@ -406,6 +413,12 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           <MenuItem onClick={handleCollapseAllChildren} disabled={data.isDisabled}>
             <UnfoldLessIcon fontSize="small" sx={{ mr: 1 }} />
             折叠全部
+          </MenuItem>
+        )}
+        {data.hasChildren && (
+          <MenuItem onClick={handleExpandAllChildren} disabled={data.isDisabled}>
+            <UnfoldMoreIcon fontSize="small" sx={{ mr: 1 }} />
+            展开全部
           </MenuItem>
         )}
         {data.description && (
