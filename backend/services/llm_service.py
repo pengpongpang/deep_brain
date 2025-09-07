@@ -382,7 +382,7 @@ class LLMService:
 
 请返回JSON格式的数据：
 {{
-  "enhanced_description": "补充后的详细描述内容，这里必须是markdown格式"
+  "enhanced_description": "补充后的详细描述内容，这里必须是markdown格式，如果有代码，代码必须用代码块定义，代码块必须有语言标识"
 }}
 
 要求：

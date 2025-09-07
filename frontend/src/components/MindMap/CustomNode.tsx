@@ -337,7 +337,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           slotProps={{
             paper: {
               style: {
-                maxWidth: 400,
+                maxWidth: '90vw',
                 maxHeight: 300,
                 overflow: 'auto',
                 padding: '0 24px',
