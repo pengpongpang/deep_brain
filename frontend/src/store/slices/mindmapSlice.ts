@@ -600,6 +600,11 @@ const mindmapSlice = createSlice({
           if (state.expandingNodeId === result.nodeId) {
             state.expandingNodeId = null;
           }
+          
+          // 强制触发 currentMindmap 的更新，确保组件能检测到变化
+          if (state.currentMindmap) {
+            state.currentMindmap = { ...state.currentMindmap };
+          }
         }
       })
       .addCase(pollExpandTaskStatus.rejected, (state, action) => {
@@ -631,6 +636,11 @@ const mindmapSlice = createSlice({
         if (result && result.status === 'completed') {
           // 任务完成，清理补充状态
           delete state.enhancingTasks[result.nodeId];
+          
+          // 强制触发 currentMindmap 的更新，确保组件能检测到变化
+          if (state.currentMindmap) {
+            state.currentMindmap = { ...state.currentMindmap };
+          }
         }
       })
       .addCase(pollEnhanceTaskStatus.rejected, (state, action) => {

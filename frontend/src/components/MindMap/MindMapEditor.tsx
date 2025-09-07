@@ -320,6 +320,8 @@ const MindMapEditor: React.FC = () => {
   useEffect(() => {
     const hasExpandingTasks = Object.keys(expandingTasks).length > 0;
     
+
+    
     setLocalNodes(prevNodes => {
       // 检查是否需要更新位置（布局变化）
       const shouldUpdatePositions = visibleNodes.some(storeNode => {
@@ -362,6 +364,9 @@ const MindMapEditor: React.FC = () => {
           
           const isExpanding = expandingTasks[prevNode.id] !== undefined;
           const isEnhancing = enhancingTasks[prevNode.id] !== undefined;
+          
+
+          
           return {
             ...prevNode,
             data: {
@@ -386,6 +391,9 @@ const MindMapEditor: React.FC = () => {
       const nodesWithCallbacks = visibleNodes.map(node => {
         const isExpanding = expandingTasks[node.id] !== undefined;
         const isEnhancing = enhancingTasks[node.id] !== undefined;
+        
+
+        
         return {
           ...node,
           data: {

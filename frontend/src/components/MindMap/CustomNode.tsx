@@ -157,6 +157,24 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
+            {/* AI任务加载指示器 */}
+            {(data.isExpanding || data.isEnhancing) && (
+              <Box
+                sx={{
+                  width: 16,
+                  height: 16,
+                  border: '2px solid #e0e0e0',
+                  borderTop: '2px solid #1976d2',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                }}
+                title={data.isExpanding ? '正在扩展节点...' : '正在补充描述...'}
+              />
+            )}
              <IconButton
                size="small"
                onClick={handleContextMenu}
