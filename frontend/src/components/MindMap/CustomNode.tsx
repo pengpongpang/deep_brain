@@ -379,35 +379,33 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           <AddIcon fontSize="small" sx={{ mr: 1 }} />
           添加子节点
         </MenuItem>
-        {data.hasChildren && !data.collapsed && (
-          <MenuItem onClick={handleExpand} disabled={data.isDisabled || data.isExpanding}>
-            {data.isExpanding ? (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box
-                  sx={{
-                    width: 16,
-                    height: 16,
-                    border: '2px solid #e0e0e0',
-                    borderTop: '2px solid #1976d2',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    mr: 1,
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' },
-                    },
-                  }}
-                />
-                扩展中...
-              </Box>
-            ) : (
-              <>
-                <AddIcon fontSize="small" sx={{ mr: 1 }} />
-                AI扩展
-              </>
-            )}
-          </MenuItem>
-        )}
+        <MenuItem onClick={handleExpand} disabled={data.isDisabled || data.isExpanding}>
+          {data.isExpanding ? (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  width: 16,
+                  height: 16,
+                  border: '2px solid #e0e0e0',
+                  borderTop: '2px solid #1976d2',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  mr: 1,
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                }}
+              />
+              扩展中...
+            </Box>
+          ) : (
+            <>
+              <AddIcon fontSize="small" sx={{ mr: 1 }} />
+              AI扩展
+            </>
+          )}
+        </MenuItem>
 
         {data.hasChildren && (
           <MenuItem onClick={handleCollapseAllChildren} disabled={data.isDisabled}>
@@ -421,35 +419,33 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             展开全部
           </MenuItem>
         )}
-        {data.description && (
-          <MenuItem onClick={handleEnhanceDescription} disabled={data.isDisabled || data.isEnhancing}>
-            {data.isEnhancing ? (
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box
-                  sx={{
-                    width: 16,
-                    height: 16,
-                    border: '2px solid #e0e0e0',
-                    borderTop: '2px solid #1976d2',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    mr: 1,
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' },
-                    },
-                  }}
-                />
-                增强中...
-              </Box>
-            ) : (
-              <>
-                <EditIcon fontSize="small" sx={{ mr: 1 }} />
-                AI增强描述
-              </>
-            )}
-          </MenuItem>
-        )}
+        <MenuItem onClick={handleEnhanceDescription} disabled={data.isDisabled || data.isEnhancing}>
+          {data.isEnhancing ? (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  width: 16,
+                  height: 16,
+                  border: '2px solid #e0e0e0',
+                  borderTop: '2px solid #1976d2',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  mr: 1,
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                }}
+              />
+              增强中...
+            </Box>
+          ) : (
+            <>
+              <EditIcon fontSize="small" sx={{ mr: 1 }} />
+              AI补充
+            </>
+          )}
+        </MenuItem>
         <MenuItem onClick={handleDelete} disabled={data.isDisabled} sx={{ color: data.isDisabled ? 'text.disabled' : 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
           删除
