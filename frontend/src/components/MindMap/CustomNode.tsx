@@ -7,6 +7,10 @@ import {
   Menu,
   MenuItem,
   Popover,
+  Dialog,
+  DialogContent,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -17,6 +21,8 @@ import {
   KeyboardArrowUp as KeyboardArrowUpIcon,
   UnfoldLess as UnfoldLessIcon,
   UnfoldMore as UnfoldMoreIcon,
+  Fullscreen as FullscreenIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -48,6 +54,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [descriptionAnchorEl, setDescriptionAnchorEl] = useState<null | HTMLElement>(null);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const open = Boolean(anchorEl);
   const descriptionOpen = Boolean(descriptionAnchorEl);
 
@@ -342,7 +349,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                 maxWidth: '90vw',
                 maxHeight: 300,
                 overflow: 'auto',
-                padding: '0 24px',
+                padding: '0',
                 boxShadow: '0px 5px 5px -3px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12)',
                 border: '1px solid rgba(0, 0, 0, 0.12)',
                 borderRadius: '8px',
@@ -351,7 +358,25 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             },
           }}
         >
-          <ReactMarkdown
+          <Box sx={{ position: 'relative', padding: '0 24px' }}>
+            {/* 放大按钮 */}
+            <IconButton
+              size="small"
+              onClick={() => setFullscreenOpen(true)}
+              sx={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                zIndex: 1,
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 1)',
+                },
+              }}
+            >
+              <FullscreenIcon fontSize="small" />
+            </IconButton>
+            <ReactMarkdown
              remarkPlugins={[remarkGfm]}
              components={{
                code: ({ className, children, ...props }: any) => {
@@ -450,7 +475,150 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           >
             {data.description}
           </ReactMarkdown>
+          </Box>
         </Popover>
+      )}
+
+      {/* 全屏Description Dialog */}
+      {data.description && (
+        <Dialog
+          open={fullscreenOpen}
+          onClose={() => setFullscreenOpen(false)}
+          maxWidth={false}
+          fullScreen
+          sx={{
+            '& .MuiDialog-paper': {
+              margin: 0,
+              maxHeight: '100vh',
+              maxWidth: '100vw',
+            },
+          }}
+        >
+          <DialogContent
+            sx={{
+              padding: '24px',
+              overflow: 'auto',
+              position: 'relative',
+            }}
+          >
+            {/* 关闭按钮 */}
+            <IconButton
+              onClick={() => setFullscreenOpen(false)}
+              sx={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                zIndex: 1,
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 1)',
+                },
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+            
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code: ({ className, children, ...props }: any) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const isInline = !match;
+                  const language = match ? match[1] : '';
+                  
+                  if (!isInline && language === 'mermaid') {
+                    return (
+                      <MermaidChart chart={String(children).replace(/\n$/, '')} />
+                    );
+                  }
+                  
+                  return !isInline ? (
+                    <SyntaxHighlighter
+                      style={tomorrow as any}
+                      language={language}
+                      PreTag="div"
+                      {...props}
+                    >
+                      {String(children).replace(/\n$/, '')}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                table: ({ children, ...props }: any) => (
+                  <Box
+                    component="table"
+                    sx={{
+                      borderCollapse: 'collapse',
+                      width: '100%',
+                      border: '1px solid #ddd',
+                      fontSize: '16px',
+                      mb: 2,
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
+                ),
+                thead: ({ children, ...props }: any) => (
+                  <Box component="thead" sx={{ backgroundColor: '#f5f5f5' }} {...props}>
+                    {children}
+                  </Box>
+                ),
+                tbody: ({ children, ...props }: any) => (
+                  <Box component="tbody" {...props}>
+                    {children}
+                  </Box>
+                ),
+                tr: ({ children, ...props }: any) => (
+                  <Box
+                    component="tr"
+                    sx={{
+                      '&:nth-of-type(even)': {
+                        backgroundColor: '#f9f9f9',
+                      },
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
+                ),
+                th: ({ children, ...props }: any) => (
+                  <Box
+                    component="th"
+                    sx={{
+                      border: '1px solid #ddd',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      fontWeight: 'bold',
+                      backgroundColor: '#f0f0f0',
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
+                ),
+                td: ({ children, ...props }: any) => (
+                  <Box
+                    component="td"
+                    sx={{
+                      border: '1px solid #ddd',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </Box>
+                ),
+              }}
+            >
+              {data.description}
+            </ReactMarkdown>
+          </DialogContent>
+        </Dialog>
       )}
 
       <Menu
