@@ -19,6 +19,7 @@ import {
   UnfoldMore as UnfoldMoreIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -350,6 +351,7 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
           }}
         >
           <ReactMarkdown
+             remarkPlugins={[remarkGfm]}
              components={{
                code: ({ className, children, ...props }: any) => {
                  const match = /language-(\w+)/.exec(className || '');
@@ -369,6 +371,72 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                    </code>
                  );
                },
+               table: ({ children, ...props }: any) => (
+                 <Box
+                   component="table"
+                   sx={{
+                     borderCollapse: 'collapse',
+                     width: '100%',
+                     border: '1px solid #ddd',
+                     fontSize: '14px',
+                     mb: 2,
+                   }}
+                   {...props}
+                 >
+                   {children}
+                 </Box>
+               ),
+               thead: ({ children, ...props }: any) => (
+                 <Box component="thead" sx={{ backgroundColor: '#f5f5f5' }} {...props}>
+                   {children}
+                 </Box>
+               ),
+               tbody: ({ children, ...props }: any) => (
+                 <Box component="tbody" {...props}>
+                   {children}
+                 </Box>
+               ),
+               tr: ({ children, ...props }: any) => (
+                 <Box
+                   component="tr"
+                   sx={{
+                     '&:nth-of-type(even)': {
+                       backgroundColor: '#f9f9f9',
+                     },
+                   }}
+                   {...props}
+                 >
+                   {children}
+                 </Box>
+               ),
+               th: ({ children, ...props }: any) => (
+                 <Box
+                   component="th"
+                   sx={{
+                     border: '1px solid #ddd',
+                     padding: '8px 12px',
+                     textAlign: 'left',
+                     fontWeight: 'bold',
+                     backgroundColor: '#f0f0f0',
+                   }}
+                   {...props}
+                 >
+                   {children}
+                 </Box>
+               ),
+               td: ({ children, ...props }: any) => (
+                 <Box
+                   component="td"
+                   sx={{
+                     border: '1px solid #ddd',
+                     padding: '8px 12px',
+                     textAlign: 'left',
+                   }}
+                   {...props}
+                 >
+                   {children}
+                 </Box>
+               ),
              }}
           >
             {data.description}
