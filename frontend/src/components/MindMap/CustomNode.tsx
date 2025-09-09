@@ -22,6 +22,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import MermaidChart from './MermaidChart';
 
 interface CustomNodeData {
   label: string;
@@ -356,10 +357,18 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
                code: ({ className, children, ...props }: any) => {
                  const match = /language-(\w+)/.exec(className || '');
                  const isInline = !match;
+                 const language = match ? match[1] : '';
+                 
+                 if (!isInline && language === 'mermaid') {
+                   return (
+                     <MermaidChart chart={String(children).replace(/\n$/, '')} />
+                   );
+                 }
+                 
                  return !isInline ? (
                    <SyntaxHighlighter
                      style={tomorrow as any}
-                     language={match[1]}
+                     language={language}
                      PreTag="div"
                      {...props}
                    >
