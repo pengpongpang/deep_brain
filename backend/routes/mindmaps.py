@@ -13,7 +13,7 @@ import uuid
 
 router = APIRouter(prefix="/mindmaps", tags=["mindmaps"])
 
-@router.post("/", response_model=MindMap)
+@router.post("", response_model=MindMap)
 async def create_mindmap(
     mindmap: MindMapCreate,
     current_user: User = Depends(get_current_active_user)
@@ -43,7 +43,7 @@ async def create_mindmap(
     
     return MindMap(**created_mindmap)
 
-@router.get("/", response_model=List[MindMap])
+@router.get("", response_model=List[MindMap])
 async def get_user_mindmaps(
     current_user: User = Depends(get_current_active_user),
     skip: int = Query(0, ge=0),

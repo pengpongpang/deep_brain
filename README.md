@@ -43,8 +43,18 @@ deep-brain/
 1. 克隆项目并进入目录
 2. 复制环境变量文件: `cp .env.example .env`
 3. 配置OpenAI API Key在.env文件中
-4. 启动服务: `docker-compose up -d`
-5. 访问应用: http://localhost:3000
+4. 前端环境配置（可选）:
+   - 复制前端环境变量文件: `cp frontend/.env.example frontend/.env.local`
+   - 根据部署环境配置API URL
+5. 启动服务: `docker-compose up -d`
+6. 访问应用: http://localhost:3000
+
+## 环境配置说明
+
+### 前端API配置
+- **开发环境**: 前端使用相对路径 `/api`，通过proxy代理到后端
+- **生产环境**: 需要在 `frontend/.env.local` 中设置 `REACT_APP_API_URL` 为完整的API服务器地址
+- **示例配置**: 参考 `frontend/.env.example` 文件
 
 ## 核心功能
 

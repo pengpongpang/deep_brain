@@ -1,7 +1,9 @@
 import axios, { AxiosResponse } from 'axios';
 
 // API基础配置
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// 使用相对路径，利用package.json中的proxy配置
+// 在生产环境中，可以通过REACT_APP_API_URL环境变量覆盖
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 // 创建axios实例
 const api = axios.create({
