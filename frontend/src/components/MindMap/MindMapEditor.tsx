@@ -430,6 +430,14 @@ const MindMapEditor: React.FC = () => {
       } else {
         setSelectedNode(null);
       }
+      
+      // 当选中节点时，确保ReactFlow容器获得焦点以支持键盘导航
+      if (nodes.length > 0) {
+        const reactFlowWrapper = document.querySelector('.react-flow');
+        if (reactFlowWrapper && reactFlowWrapper instanceof HTMLElement) {
+          reactFlowWrapper.focus();
+        }
+      }
     },
     [setSelectedNode]
   );
@@ -955,6 +963,166 @@ const MindMapEditor: React.FC = () => {
     message: '您有未保存的更改，是否要保存？',
   });
 
+  // 键盘导航功能
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // 如果正在编辑对话框中，不处理键盘导航
+    if (editDialogOpen || addNodeDialogOpen || expandDialogOpen || enhanceDialogOpen) {
+      return;
+    }
+
+    // 如果焦点在输入框中，不处理键盘导航
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+      return;
+    }
+
+    // 使用selectedNodes数组中的第一个节点，如果没有则使用selectedNode
+    const currentNode = selectedNodes.length > 0 ? selectedNodes[0] : selectedNode;
+    if (!currentNode) return;
+
+    let targetNode: Node | null = null;
+
+    switch (event.key) {
+      case 'ArrowUp': {
+        event.preventDefault();
+        // 在同级兄弟节点中向上切换（包含当前节点）
+        const siblings = rawNodes.filter(node => 
+          node.data.parent_id === currentNode.data.parent_id
+        ).sort((a, b) => (a.data.order || 0) - (b.data.order || 0));
+        
+        const currentIndex = siblings.findIndex(node => node.id === currentNode.id);
+        if (currentIndex > 0) {
+          targetNode = siblings[currentIndex - 1];
+        }
+        break;
+      }
+      case 'ArrowDown': {
+        event.preventDefault();
+        // 在同级兄弟节点中向下切换（包含当前节点）
+        const siblings = rawNodes.filter(node => 
+          node.data.parent_id === currentNode.data.parent_id
+        ).sort((a, b) => (a.data.order || 0) - (b.data.order || 0));
+        
+        const currentIndex = siblings.findIndex(node => node.id === currentNode.id);
+        if (currentIndex >= 0 && currentIndex < siblings.length - 1) {
+          targetNode = siblings[currentIndex + 1];
+        }
+        break;
+      }
+      case 'ArrowLeft': {
+        event.preventDefault();
+        // 切换到父节点
+        if (currentNode.data.parent_id) {
+          const parentNode = rawNodes.find(node => node.id === currentNode.data.parent_id);
+          if (parentNode) {
+            targetNode = parentNode;
+          }
+        }
+        break;
+      }
+      case 'ArrowRight': {
+        event.preventDefault();
+        // 切换到第一个子节点
+        const children = rawNodes.filter(node => 
+          node.data.parent_id === currentNode.id
+        ).sort((a, b) => (a.data.order || 0) - (b.data.order || 0));
+        
+        if (children.length > 0) {
+          targetNode = children[0];
+        }
+        break;
+      }
+      case '+':
+      case '=': {
+        event.preventDefault();
+        // 展开节点
+        if (collapsedNodes.has(currentNode.id)) {
+          toggleCollapse(currentNode.id);
+          // 保持当前节点选中状态，使用更长的延迟确保状态更新完成
+          setTimeout(() => {
+            // 从visibleNodes中找到更新后的节点
+            const updatedNode = visibleNodes.find(node => node.id === currentNode.id);
+            if (updatedNode) {
+              // 更新节点数据中的selected属性
+              setLocalNodes(nodes => 
+                nodes.map(node => ({
+                  ...node,
+                  selected: node.id === updatedNode.id
+                }))
+              );
+              
+              // 更新本地状态
+              setSelectedNode(updatedNode);
+              setSelectedNodes([updatedNode]);
+            }
+          }, 100);
+        }
+        return; // 不需要设置targetNode
+      }
+      case '-': {
+        event.preventDefault();
+        // 折叠节点
+        if (!collapsedNodes.has(currentNode.id)) {
+          const hasChildren = rawNodes.some(node => node.data.parent_id === currentNode.id);
+          if (hasChildren) {
+            toggleCollapse(currentNode.id);
+            // 保持当前节点选中状态，使用更长的延迟确保状态更新完成
+            setTimeout(() => {
+              // 从visibleNodes中找到更新后的节点
+              const updatedNode = visibleNodes.find(node => node.id === currentNode.id);
+              if (updatedNode) {
+                // 更新节点数据中的selected属性
+                setLocalNodes(nodes => 
+                  nodes.map(node => ({
+                    ...node,
+                    selected: node.id === updatedNode.id
+                  }))
+                );
+                
+                // 更新本地状态
+                setSelectedNode(updatedNode);
+                setSelectedNodes([updatedNode]);
+              }
+            }, 100);
+          }
+        }
+        return; // 不需要设置targetNode
+      }
+    }
+
+    // 如果找到了目标节点，更新选中状态
+    if (targetNode) {
+      // 更新节点数据中的selected属性
+      setLocalNodes(nodes => 
+        nodes.map(node => ({
+          ...node,
+          selected: node.id === targetNode!.id
+        }))
+      );
+      
+      // 更新本地状态
+      setSelectedNode(targetNode);
+      setSelectedNodes([targetNode]);
+      setSelectedEdges([]);
+    }
+  }, [selectedNode, selectedNodes, rawNodes, visibleNodes, collapsedNodes, toggleCollapse, setSelectedNode, setLocalNodes, editDialogOpen, addNodeDialogOpen, expandDialogOpen, enhanceDialogOpen]);
+
+  // 添加键盘事件监听器
+  useEffect(() => {
+    const handleKeyDownWrapper = (event: KeyboardEvent) => {
+      // 如果有选中的节点，就处理键盘事件
+      const hasSelectedNode = selectedNodes.length > 0 || selectedNode;
+      if (hasSelectedNode) {
+        handleKeyDown(event);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDownWrapper);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDownWrapper);
+    };
+  }, [handleKeyDown, selectedNodes, selectedNode]);
+
   // 描述补充提交
   const handleEnhanceDescriptionSubmit = async () => {
     if (!nodeToEnhance || !id || !currentMindmap) return;
@@ -1087,6 +1255,8 @@ const MindMapEditor: React.FC = () => {
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
         <ReactFlowProvider>
           <ReactFlow
+            tabIndex={0}
+            style={{ outline: 'none' }}
             nodes={localNodes}
             edges={localEdges}
             onNodesChange={onNodesChange}
@@ -1106,7 +1276,7 @@ const MindMapEditor: React.FC = () => {
             nodeOrigin={[0, 0.5]}
             attributionPosition="bottom-left"
             elevateNodesOnSelect={false}
-            disableKeyboardA11y={true}
+            disableKeyboardA11y={false}
             nodesConnectable={false}
             onlyRenderVisibleElements={true}
             maxZoom={2}

@@ -124,16 +124,17 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       sx={{
         padding: '12px 16px',
         borderRadius: '8px',
-        backgroundColor: 'white',
-        border: selected ? `2px solid ${getNodeColor(data.level)}` : '1px solid #e0e0e0',
-        boxShadow: selected ? 3 : 1,
+        backgroundColor: selected ? `${getNodeColor(data.level)}08` : 'white',
+        border: selected ? `3px solid ${getNodeColor(data.level)}` : '1px solid #e0e0e0',
+        boxShadow: selected ? `0 0 0 2px ${getNodeColor(data.level)}40, 0 4px 12px rgba(0,0,0,0.15)` : 1,
         minWidth: '120px',
         maxWidth: '300px',
         position: 'relative',
         cursor: 'pointer',
         transition: 'all 0.2s ease-in-out',
+        transform: selected ? 'scale(1.02)' : 'scale(1)',
         '&:hover': {
-          boxShadow: 2,
+          boxShadow: selected ? `0 0 0 2px ${getNodeColor(data.level)}40, 0 4px 12px rgba(0,0,0,0.15)` : 2,
           borderColor: getNodeColor(data.level),
         },
       }}
