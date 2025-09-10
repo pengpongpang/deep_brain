@@ -69,6 +69,87 @@ const nodeTypes = {
   custom: CustomNodeComponent,
 };
 
+// 节点编辑对话框组件
+const NodeEditDialog: React.FC<{
+  open: boolean;
+  node: Node | null;
+  onClose: () => void;
+  onSave: (nodeId: string, data: { label?: string; content?: string; description?: string }) => void;
+}> = React.memo(({ open, node, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    label: '',
+    content: '',
+    description: ''
+  });
+
+  // 当节点变化时，更新表单数据
+  useEffect(() => {
+    if (node) {
+      setFormData({
+        label: node.data.label || '',
+        content: node.data.content || '',
+        description: node.data.description || ''
+      });
+    }
+  }, [node]);
+
+  const handleSave = useCallback(() => {
+    if (node) {
+      onSave(node.id, formData);
+    }
+    onClose();
+  }, [node, formData, onSave, onClose]);
+
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle>编辑节点</DialogTitle>
+      <DialogContent>
+        <TextField
+          autoFocus
+          margin="dense"
+          label="标题"
+          fullWidth
+          variant="outlined"
+          value={formData.label}
+          onChange={(e) => setFormData(prev => ({ ...prev, label: e.target.value }))}
+        />
+        <TextField
+          margin="dense"
+          label="内容"
+          fullWidth
+          multiline
+          rows={4}
+          variant="outlined"
+          value={formData.content}
+          onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+        />
+        <TextField
+          margin="dense"
+          label="详细描述"
+          fullWidth
+          multiline
+          rows={4}
+          variant="outlined"
+          value={formData.description}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose}>
+          取消
+        </Button>
+        <Button onClick={handleSave} variant="contained">
+          确定
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+});
+
 // 选择处理组件 - 必须在ReactFlowProvider内部使用
 const SelectionHandler: React.FC<{
   onSelectionChange: ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => void;
@@ -1366,81 +1447,24 @@ const MindMapEditor: React.FC = () => {
       </Box>
 
       {/* 编辑节点对话框 */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>编辑节点</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="标题"
-            fullWidth
-            variant="outlined"
-            value={selectedNode?.data.label || ''}
-            onChange={(e) => {
-              if (selectedNode) {
-                const updatedNode = {
-                  ...selectedNode,
-                  data: { ...selectedNode.data, label: e.target.value },
-                };
-                setSelectedNode(updatedNode);
-                // 实时更新store中的节点数据
-                updateNode(selectedNode.id, { label: e.target.value });
-              }
-            }}
-          />
-          <TextField
-            margin="dense"
-            label="内容"
-            fullWidth
-            multiline
-            rows={4}
-            variant="outlined"
-            value={selectedNode?.data.content || ''}
-            onChange={(e) => {
-              if (selectedNode) {
-                const updatedNode = {
-                  ...selectedNode,
-                  data: { ...selectedNode.data, content: e.target.value },
-                };
-                setSelectedNode(updatedNode);
-                // 实时更新store中的节点数据
-                updateNode(selectedNode.id, { content: e.target.value });
-              }
-            }}
-          />
-          <TextField
-            margin="dense"
-            label="详细描述"
-            fullWidth
-            multiline
-            rows={4}
-            variant="outlined"
-            value={selectedNode?.data.description || ''}
-            onChange={(e) => {
-              if (selectedNode) {
-                const updatedNode = {
-                  ...selectedNode,
-                  data: { ...selectedNode.data, description: e.target.value },
-                };
-                setSelectedNode(updatedNode);
-                // 实时更新store中的节点数据
-                updateNode(selectedNode.id, { description: e.target.value });
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => {
-              setEditDialogOpen(false);
-              setSelectedNode(null);
-            }} 
-            variant="contained"
-          >
-            关闭
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <NodeEditDialog
+        open={editDialogOpen}
+        node={selectedNode}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setSelectedNode(null);
+        }}
+        onSave={(nodeId, data) => {
+          updateNode(nodeId, data);
+          if (selectedNode) {
+            const updatedNode = {
+              ...selectedNode,
+              data: { ...selectedNode.data, ...data },
+            };
+            setSelectedNode(updatedNode);
+          }
+        }}
+      />
 
       {/* AI扩展对话框 */}
       <Dialog open={expandDialogOpen} onClose={() => setExpandDialogOpen(false)} maxWidth="sm" fullWidth>
