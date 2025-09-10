@@ -391,7 +391,7 @@ const MindMapEditor: React.FC = () => {
       const shouldPreserveCollapsedState = hasExpandingTasks || currentCollapsedNodes.size > 0;
       
       // 初始化数据，根据情况决定是否保持折叠状态
-      initializeData(nodesToProcess, edgesToProcess, shouldPreserveCollapsedState);
+      initializeData(nodesToProcess, edgesToProcess, shouldPreserveCollapsedState, id);
       
       // 如果不是初始加载，触发视图恢复
       if (!isInitialLoad) {
@@ -416,8 +416,8 @@ const MindMapEditor: React.FC = () => {
   
   // 收折展开处理
   const handleToggleCollapse = useCallback((nodeId: string) => {
-    toggleCollapse(nodeId);
-  }, [toggleCollapse]);
+    toggleCollapse(nodeId, id);
+  }, [toggleCollapse, id]);
   
   // 折叠所有子节点
   const handleCollapseAllChildren = useCallback((nodeId: string) => {
@@ -767,7 +767,7 @@ const MindMapEditor: React.FC = () => {
     }
     
     if (actualParentId && collapsedNodes.has(actualParentId)) {
-      toggleCollapse(actualParentId);
+      toggleCollapse(actualParentId, id);
     }
     
     setParentNodeForNewNode(actualParentId);
@@ -1167,7 +1167,7 @@ const MindMapEditor: React.FC = () => {
         event.preventDefault();
         // 展开节点
         if (collapsedNodes.has(currentNode.id)) {
-          toggleCollapse(currentNode.id);
+          toggleCollapse(currentNode.id, id);
           // 保持当前节点选中状态，使用更长的延迟确保状态更新完成
           setTimeout(() => {
             // 从visibleNodes中找到更新后的节点
@@ -1195,7 +1195,7 @@ const MindMapEditor: React.FC = () => {
         if (!collapsedNodes.has(currentNode.id)) {
           const hasChildren = rawNodes.some(node => node.data.parent_id === currentNode.id);
           if (hasChildren) {
-            toggleCollapse(currentNode.id);
+            toggleCollapse(currentNode.id, id);
             // 保持当前节点选中状态，使用更长的延迟确保状态更新完成
             setTimeout(() => {
               // 从visibleNodes中找到更新后的节点

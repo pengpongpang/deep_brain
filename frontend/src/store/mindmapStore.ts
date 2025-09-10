@@ -51,9 +51,9 @@ interface MindmapState {
   // 视图状态
   savedViewport: ViewportState | null;
   
-  // 操作方法
-  initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => void;
-  toggleCollapse: (nodeId: string) => void;
+  // 方法
+  initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean, mindmapId?: string) => void;
+  toggleCollapse: (nodeId: string, mindmapId?: string) => void;
   collapseAllChildren: (nodeId: string) => void;
   expandAllChildren: (nodeId: string) => void;
   addNode: (node: CustomNode, parentId?: string) => void;
@@ -267,6 +267,29 @@ const applyImprovedLayout = (nodes: CustomNode[]): CustomNode[] => {
   });
 };
 
+// 持久化折叠状态的工具函数
+const saveCollapsedState = (mindmapId: string, collapsedNodes: Set<string>) => {
+  try {
+    const collapsedArray = Array.from(collapsedNodes);
+    localStorage.setItem(`mindmap_collapsed_${mindmapId}`, JSON.stringify(collapsedArray));
+  } catch (error) {
+    console.warn('Failed to save collapsed state:', error);
+  }
+};
+
+const loadCollapsedState = (mindmapId: string): Set<string> => {
+  try {
+    const saved = localStorage.getItem(`mindmap_collapsed_${mindmapId}`);
+    if (saved) {
+      const collapsedArray = JSON.parse(saved);
+      return new Set(collapsedArray);
+    }
+  } catch (error) {
+    console.warn('Failed to load collapsed state:', error);
+  }
+  return new Set<string>();
+};
+
 // 创建Zustand store
 export const useMindmapStore = create<MindmapState>((set, get) => ({
   // 初始状态
@@ -280,21 +303,31 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
   // 移除未保存状态重置
 
   // 初始化数据
-  initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean) => {
+  initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean, mindmapId?: string) => {
     console.log('Store: Initializing data with', nodes.length, 'nodes and', edges.length, 'edges');
     const { collapsedNodes: currentCollapsedNodes } = get();
+    
+    // 确定折叠状态：优先使用localStorage中的状态，其次是当前状态，最后是空集合
+    let collapsedNodes: Set<string>;
+    if (mindmapId) {
+      collapsedNodes = loadCollapsedState(mindmapId);
+    } else if (preserveCollapsedState) {
+      collapsedNodes = currentCollapsedNodes;
+    } else {
+      collapsedNodes = new Set<string>();
+    }
     
     set({
       rawNodes: nodes,
       rawEdges: edges,
-      collapsedNodes: preserveCollapsedState ? currentCollapsedNodes : new Set<string>(),
+      collapsedNodes,
       // 移除未保存状态初始化
     });
     get().updateVisibleData();
   },
 
   // 切换折叠状态
-  toggleCollapse: (nodeId: string) => {
+  toggleCollapse: (nodeId: string, mindmapId?: string) => {
     console.log('Store: Toggling collapse for node', nodeId);
     const { collapsedNodes } = get();
     const newCollapsedNodes = new Set(collapsedNodes);
@@ -311,6 +344,12 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
       collapsedNodes: newCollapsedNodes,
       // 移除未保存状态设置 
     });
+    
+    // 保存折叠状态到localStorage
+    if (mindmapId) {
+      saveCollapsedState(mindmapId, newCollapsedNodes);
+    }
+    
     get().updateVisibleData();
   },
 
