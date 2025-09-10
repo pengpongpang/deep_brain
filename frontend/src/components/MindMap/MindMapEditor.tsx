@@ -1437,6 +1437,7 @@ const MindMapEditor: React.FC = () => {
             selectNodesOnDrag={false}
             multiSelectionKeyCode={['Meta', 'Control', 'Shift']}
             panOnDrag={[1, 2]}
+            panOnScroll
             deleteKeyCode={null}
             preventScrolling={false}
             nodeOrigin={[0, 0.5]}
