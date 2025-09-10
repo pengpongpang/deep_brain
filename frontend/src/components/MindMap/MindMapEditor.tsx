@@ -79,6 +79,35 @@ const SelectionHandler: React.FC<{
   return null;
 });
 
+// 键盘导航聚焦组件 - 必须在ReactFlowProvider内部使用
+const FocusHandler: React.FC<{
+  selectedNodeId: string | null;
+  isKeyboardNavigation: boolean;
+  onFocusComplete: () => void;
+}> = React.memo(({ selectedNodeId, isKeyboardNavigation, onFocusComplete }) => {
+  const reactFlowInstance = useReactFlow();
+
+  useEffect(() => {
+    if (selectedNodeId && isKeyboardNavigation && reactFlowInstance) {
+      // 延迟执行以确保节点状态已更新
+      setTimeout(() => {
+        const node = reactFlowInstance.getNode(selectedNodeId);
+        if (node) {
+          // 使用fitView聚焦到特定节点，添加一些padding
+          reactFlowInstance.fitView({
+            nodes: [node],
+            padding: 0.3,
+            duration: 300,
+          });
+          onFocusComplete();
+        }
+      }, 50);
+    }
+  }, [selectedNodeId, isKeyboardNavigation, reactFlowInstance, onFocusComplete]);
+
+  return null;
+});
+
 // 视图状态管理组件 - 必须在ReactFlowProvider内部使用
 const ViewportHandler: React.FC<{
   saveViewport: (viewport: { x: number; y: number; zoom: number }) => void;
@@ -199,6 +228,8 @@ const MindMapEditor: React.FC = () => {
   const [newNodeTitle, setNewNodeTitle] = useState('');
   const [newNodeDescription, setNewNodeDescription] = useState('');
   const [parentNodeForNewNode, setParentNodeForNewNode] = useState<string | null>(null);
+  const [isKeyboardNavigation, setIsKeyboardNavigation] = useState(false);
+  const [keyboardSelectedNodeId, setKeyboardSelectedNodeId] = useState<string | null>(null);
   const [settingsMenuAnchor, setSettingsMenuAnchor] = useState<null | HTMLElement>(null);
   
   // 本地状态管理nodes和edges以支持拖拽
@@ -1104,8 +1135,18 @@ const MindMapEditor: React.FC = () => {
       setSelectedNode(targetNode);
       setSelectedNodes([targetNode]);
       setSelectedEdges([]);
+      
+      // 设置键盘导航状态，触发视野聚焦
+      setIsKeyboardNavigation(true);
+      setKeyboardSelectedNodeId(targetNode.id);
     }
   }, [selectedNode, selectedNodes, rawNodes, visibleNodes, collapsedNodes, toggleCollapse, setSelectedNode, setLocalNodes, editDialogOpen, addNodeDialogOpen, expandDialogOpen, enhanceDialogOpen]);
+
+  // 处理聚焦完成
+  const handleFocusComplete = useCallback(() => {
+    setIsKeyboardNavigation(false);
+    setKeyboardSelectedNodeId(null);
+  }, []);
 
   // 添加键盘事件监听器
   useEffect(() => {
@@ -1286,6 +1327,11 @@ const MindMapEditor: React.FC = () => {
             connectionMode={"loose" as any}
           >
             <SelectionHandler onSelectionChange={onSelectionChange} />
+            <FocusHandler 
+              selectedNodeId={keyboardSelectedNodeId}
+              isKeyboardNavigation={isKeyboardNavigation}
+              onFocusComplete={handleFocusComplete}
+            />
             <ViewportHandler 
               saveViewport={saveViewport}
               getSavedViewport={getSavedViewport}
