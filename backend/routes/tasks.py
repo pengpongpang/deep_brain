@@ -156,7 +156,7 @@ async def get_task_status(
     
     return task
 
-@router.get("/", response_model=List[Task])
+@router.get("", response_model=List[Task])
 async def get_user_tasks(
     limit: int = 10,
     current_user: User = Depends(get_current_active_user)
