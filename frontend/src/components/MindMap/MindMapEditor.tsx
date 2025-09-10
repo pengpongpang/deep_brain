@@ -753,7 +753,16 @@ const MindMapEditor: React.FC = () => {
       if (!draggedNode) return;
       
       // 获取鼠标位置下的元素
-      const elementsBelow = document.elementsFromPoint(event.clientX, event.clientY);
+      // 检查坐标是否为有限数值，避免 "non-finite" 错误
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+      
+      if (!isFinite(clientX) || !isFinite(clientY)) {
+        console.warn('Invalid mouse coordinates:', { clientX, clientY });
+        return;
+      }
+      
+      const elementsBelow = document.elementsFromPoint(clientX, clientY);
       
       // 查找是否有其他节点在拖拽位置下方
       let targetNodeElement = null;
