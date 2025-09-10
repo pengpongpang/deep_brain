@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import {
   Box,
@@ -29,6 +29,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import MermaidChart from './MermaidChart';
+import { useMindmapStore } from '../../store/mindmapStore';
 
 interface CustomNodeData {
   label: string;
@@ -40,11 +41,13 @@ interface CustomNodeData {
   isExpanding?: boolean;
   isEnhancing?: boolean;
   isDisabled?: boolean;
+  descriptionExpanded?: boolean;
   onEdit?: (nodeId: string) => void;
   onDelete?: (nodeId: string) => void;
   onAddChild?: (nodeId: string) => void;
   onExpand?: (nodeId: string) => void;
   onToggleCollapse?: (nodeId: string) => void;
+  onToggleDescriptionExpanded?: (nodeId: string) => void;
   onCollapseAllChildren?: (nodeId: string) => void;
   onExpandAllChildren?: (nodeId: string) => void;
   onEnhanceDescription?: (nodeId: string) => void;
@@ -53,10 +56,35 @@ interface CustomNodeData {
 const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [descriptionAnchorEl, setDescriptionAnchorEl] = useState<null | HTMLElement>(null);
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const descriptionButtonRef = useRef<HTMLButtonElement>(null);
+  const popoverContentRef = useRef<HTMLDivElement>(null);
+  const { expandedDescriptionNodeId, toggleDescriptionExpanded } = useMindmapStore();
+  
   const open = Boolean(anchorEl);
+  const descriptionExpanded = expandedDescriptionNodeId === id;
   const descriptionOpen = Boolean(descriptionAnchorEl);
+
+  // 监听全局description状态变化
+  useEffect(() => {
+    if (descriptionExpanded && descriptionButtonRef.current) {
+      setDescriptionAnchorEl(descriptionButtonRef.current);
+    } else {
+      setDescriptionAnchorEl(null);
+    }
+  }, [descriptionExpanded]);
+
+  // 当tooltip展示后，聚焦到内容区域
+  useEffect(() => {
+    if (descriptionOpen && popoverContentRef.current) {
+      // 延迟聚焦，确保popover已完全渲染
+      setTimeout(() => {
+        popoverContentRef.current?.focus();
+      }, 100);
+    }
+  }, [descriptionOpen]);
+
+  // 空格键监听已在MindMapEditor中全局处理，这里不需要重复监听
 
   const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -292,16 +320,11 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
            }}
          >
            <IconButton
+             ref={descriptionButtonRef}
              size="small"
              onClick={(event) => {
                event.stopPropagation();
-               if (descriptionExpanded) {
-                 setDescriptionAnchorEl(null);
-                 setDescriptionExpanded(false);
-               } else {
-                 setDescriptionAnchorEl(event.currentTarget as unknown as HTMLElement);
-                 setDescriptionExpanded(true);
-               }
+               toggleDescriptionExpanded(id);
              }}
              disabled={data.isDisabled}
              sx={{
@@ -334,7 +357,6 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
            anchorEl={descriptionAnchorEl}
            onClose={() => {
              setDescriptionAnchorEl(null);
-             setDescriptionExpanded(false);
            }}
            anchorOrigin={{
              vertical: 'bottom',
@@ -359,7 +381,15 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
             },
           }}
         >
-          <Box sx={{ position: 'relative', padding: '0 24px' }}>
+          <Box 
+            ref={popoverContentRef}
+            tabIndex={-1}
+            sx={{ 
+              position: 'relative', 
+              padding: '0 24px',
+              outline: 'none' // 移除聚焦时的默认轮廓
+            }}
+          >
             {/* 放大按钮 */}
             <IconButton
               size="small"

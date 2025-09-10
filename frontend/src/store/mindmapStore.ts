@@ -45,6 +45,9 @@ interface MindmapState {
   // 折叠状态
   collapsedNodes: Set<string>;
   
+  // description显示状态（全局只允许展开一个）
+  expandedDescriptionNodeId: string | null;
+  
   // UI状态
   selectedNode: CustomNode | null;
   
@@ -54,6 +57,7 @@ interface MindmapState {
   // 方法
   initializeData: (nodes: CustomNode[], edges: Edge[], preserveCollapsedState?: boolean, mindmapId?: string) => void;
   toggleCollapse: (nodeId: string, mindmapId?: string) => void;
+  toggleDescriptionExpanded: (nodeId: string) => void;
   collapseAllChildren: (nodeId: string) => void;
   expandAllChildren: (nodeId: string) => void;
   addNode: (node: CustomNode, parentId?: string) => void;
@@ -298,6 +302,7 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
   visibleNodes: [],
   visibleEdges: [],
   collapsedNodes: new Set<string>(),
+  expandedDescriptionNodeId: null,
   selectedNode: null,
   savedViewport: null,
   // 移除未保存状态重置
@@ -351,6 +356,25 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
     }
     
     get().updateVisibleData();
+  },
+
+  // 切换description显示状态
+  toggleDescriptionExpanded: (nodeId: string) => {
+    console.log('Store: Toggling description expanded for node', nodeId);
+    const { expandedDescriptionNodeId } = get();
+    
+    // 如果当前节点已经展开，则关闭；否则展开当前节点（关闭其他）
+    const newExpandedDescriptionNodeId = expandedDescriptionNodeId === nodeId ? null : nodeId;
+    
+    if (newExpandedDescriptionNodeId === null) {
+      console.log('Store: Hiding description for node', nodeId);
+    } else {
+      console.log('Store: Showing description for node', nodeId);
+    }
+    
+    set({ 
+      expandedDescriptionNodeId: newExpandedDescriptionNodeId,
+    });
   },
 
   // 折叠所有子节点

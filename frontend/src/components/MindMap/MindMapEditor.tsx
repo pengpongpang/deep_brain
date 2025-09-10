@@ -282,9 +282,11 @@ const MindMapEditor: React.FC = () => {
     visibleNodes,
     visibleEdges: edges,
     collapsedNodes,
+    // expandedDescriptions, // 现在使用全局状态管理
     selectedNode,
     initializeData,
     toggleCollapse,
+    toggleDescriptionExpanded,
     collapseAllChildren,
     expandAllChildren,
     addNode,
@@ -450,6 +452,7 @@ const MindMapEditor: React.FC = () => {
         const nodesWithCallbacks = visibleNodes.map(node => {
           const isExpanding = expandingTasks[node.id] !== undefined;
           const isEnhancing = enhancingTasks[node.id] !== undefined;
+          // descriptionExpanded 现在由CustomNode组件内部管理
           return {
             ...node,
             data: {
@@ -463,6 +466,7 @@ const MindMapEditor: React.FC = () => {
               onExpand: handleExpandNode,
               onEnhanceDescription: handleEnhanceDescription,
               onToggleCollapse: handleToggleCollapse,
+              onToggleDescriptionExpanded: toggleDescriptionExpanded,
             },
           };
         });
@@ -480,6 +484,7 @@ const MindMapEditor: React.FC = () => {
           
 
           
+          // descriptionExpanded 现在由CustomNode组件内部管理
           return {
             ...prevNode,
             data: {
@@ -493,6 +498,7 @@ const MindMapEditor: React.FC = () => {
             onExpand: handleExpandNode,
             onEnhanceDescription: handleEnhanceDescription,
             onToggleCollapse: handleToggleCollapse,
+            onToggleDescriptionExpanded: toggleDescriptionExpanded,
               onCollapseAllChildren: handleCollapseAllChildren,
               onExpandAllChildren: handleExpandAllChildren,
             },
@@ -504,7 +510,7 @@ const MindMapEditor: React.FC = () => {
       const nodesWithCallbacks = visibleNodes.map(node => {
         const isExpanding = expandingTasks[node.id] !== undefined;
         const isEnhancing = enhancingTasks[node.id] !== undefined;
-        
+        // descriptionExpanded 现在由CustomNode组件内部管理
 
         
         return {
@@ -520,6 +526,7 @@ const MindMapEditor: React.FC = () => {
             onExpand: handleExpandNode,
             onEnhanceDescription: handleEnhanceDescription,
             onToggleCollapse: handleToggleCollapse,
+            onToggleDescriptionExpanded: toggleDescriptionExpanded,
             onCollapseAllChildren: handleCollapseAllChildren,
             onExpandAllChildren: handleExpandAllChildren,
           },
@@ -529,13 +536,24 @@ const MindMapEditor: React.FC = () => {
     });
     
     setLocalEdges(edges);
-  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, handleCollapseAllChildren, handleExpandAllChildren, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleNodes, edges, expandingTasks, enhancingTasks, handleToggleCollapse, handleCollapseAllChildren, handleExpandAllChildren, toggleDescriptionExpanded, shouldRestoreViewport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 处理选择变化
   const onSelectionChange = useCallback(
     ({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => {
       setSelectedNodes(nodes);
       setSelectedEdges(edges);
+      
+      // 当节点选择发生变化时，自动关闭之前展开的description
+      const { expandedDescriptionNodeId } = useMindmapStore.getState();
+      if (expandedDescriptionNodeId) {
+        // 检查当前展开的description节点是否还在选中状态
+        const isExpandedNodeStillSelected = nodes.some(node => node.id === expandedDescriptionNodeId);
+        if (!isExpandedNodeStillSelected) {
+          // 如果展开的节点不再被选中，则关闭description
+          toggleDescriptionExpanded(expandedDescriptionNodeId);
+        }
+      }
       
       // 如果只选中了一个节点，更新selectedNode状态以保持兼容性
       if (nodes.length === 1) {
@@ -552,7 +570,7 @@ const MindMapEditor: React.FC = () => {
         }
       }
     },
-    [setSelectedNode]
+    [setSelectedNode, toggleDescriptionExpanded]
   );
 
   // 编辑节点
@@ -1215,6 +1233,14 @@ const MindMapEditor: React.FC = () => {
               }
             }, 100);
           }
+        }
+        return; // 不需要设置targetNode
+      }
+      case ' ': {
+        event.preventDefault();
+        // 切换description显示状态
+        if (currentNode.data.description) {
+          toggleDescriptionExpanded(currentNode.id);
         }
         return; // 不需要设置targetNode
       }
