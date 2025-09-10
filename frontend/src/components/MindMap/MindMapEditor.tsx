@@ -230,6 +230,7 @@ const MindMapEditor: React.FC = () => {
   const [parentNodeForNewNode, setParentNodeForNewNode] = useState<string | null>(null);
   const [isKeyboardNavigation, setIsKeyboardNavigation] = useState(false);
   const [keyboardSelectedNodeId, setKeyboardSelectedNodeId] = useState<string | null>(null);
+  const [lastChildNodeId, setLastChildNodeId] = useState<string | null>(null);
   const [settingsMenuAnchor, setSettingsMenuAnchor] = useState<null | HTMLElement>(null);
   
   // 本地状态管理nodes和edges以支持拖拽
@@ -1046,6 +1047,8 @@ const MindMapEditor: React.FC = () => {
         if (currentNode.data.parent_id) {
           const parentNode = rawNodes.find(node => node.id === currentNode.data.parent_id);
           if (parentNode) {
+            // 记住当前子节点，以便之后向右切换时能回到这个节点
+            setLastChildNodeId(currentNode.id);
             targetNode = parentNode;
           }
         }
@@ -1053,13 +1056,28 @@ const MindMapEditor: React.FC = () => {
       }
       case 'ArrowRight': {
         event.preventDefault();
-        // 切换到第一个子节点
+        // 切换到子节点，优先选择之前记住的子节点
         const children = rawNodes.filter(node => 
           node.data.parent_id === currentNode.id
         ).sort((a, b) => (a.data.order || 0) - (b.data.order || 0));
         
         if (children.length > 0) {
-          targetNode = children[0];
+          // 如果有记住的子节点ID，且该节点是当前节点的子节点，则优先选择它
+          if (lastChildNodeId) {
+            const lastChild = children.find(child => child.id === lastChildNodeId);
+            if (lastChild) {
+              targetNode = lastChild;
+              // 清除记住的子节点ID，避免影响后续导航
+              setLastChildNodeId(null);
+            } else {
+              // 如果记住的子节点不在当前子节点列表中，选择第一个子节点
+              targetNode = children[0];
+              setLastChildNodeId(null);
+            }
+          } else {
+            // 没有记住的子节点，选择第一个子节点
+            targetNode = children[0];
+          }
         }
         break;
       }
@@ -1140,7 +1158,7 @@ const MindMapEditor: React.FC = () => {
       setIsKeyboardNavigation(true);
       setKeyboardSelectedNodeId(targetNode.id);
     }
-  }, [selectedNode, selectedNodes, rawNodes, visibleNodes, collapsedNodes, toggleCollapse, setSelectedNode, setLocalNodes, editDialogOpen, addNodeDialogOpen, expandDialogOpen, enhanceDialogOpen]);
+  }, [selectedNode, selectedNodes, rawNodes, visibleNodes, collapsedNodes, toggleCollapse, setSelectedNode, setLocalNodes, editDialogOpen, addNodeDialogOpen, expandDialogOpen, enhanceDialogOpen, lastChildNodeId, setLastChildNodeId]);
 
   // 处理聚焦完成
   const handleFocusComplete = useCallback(() => {
