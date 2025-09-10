@@ -16,6 +16,7 @@ import MindMapList from './components/MindMap/MindMapList';
 import Profile from './components/Profile/Profile';
 import TaskList from './components/Tasks/TaskList';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 // Import store types and actions
 import { RootState, AppDispatch } from './store/store';
@@ -84,6 +85,37 @@ function App() {
     }
   }, [dispatch, isAuthenticated]);
 
+  // 注册Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+            
+            // 检查更新
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // 有新版本可用
+                    if (window.confirm('发现新版本，是否立即更新？')) {
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      window.location.reload();
+                    }
+                  }
+                });
+              }
+            });
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      });
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <ThemeProvider theme={muiTheme}>
@@ -136,6 +168,9 @@ function App() {
             element={<Navigate to={isAuthenticated ? "/mindmaps" : "/login"} />} 
           />
       </Routes>
+      
+      {/* PWA安装提示 */}
+      <PWAInstallPrompt />
       
       {/* 全局通知 */}
       <ToastContainer

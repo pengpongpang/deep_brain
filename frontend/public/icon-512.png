@@ -1,0 +1,50 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brainGradient512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1976d2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#42a5f5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#brainGradient512)" stroke="#ffffff" stroke-width="8"/>
+  
+  <!-- Brain shape -->
+  <path d="M160 190 C130 160, 180 130, 220 160 C250 130, 290 130, 330 160 C360 130, 410 160, 380 190 C410 220, 380 270, 350 300 C380 330, 330 360, 300 330 C270 360, 220 360, 190 330 C130 360, 100 300, 140 270 C100 240, 140 220, 160 190 Z" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Neural connections -->
+  <circle cx="200" cy="230" r="8" fill="#1976d2"/>
+  <circle cx="256" cy="220" r="8" fill="#1976d2"/>
+  <circle cx="310" cy="240" r="8" fill="#1976d2"/>
+  <circle cx="230" cy="280" r="8" fill="#1976d2"/>
+  <circle cx="280" cy="290" r="8" fill="#1976d2"/>
+  <circle cx="180" cy="270" r="6" fill="#42a5f5"/>
+  <circle cx="320" cy="270" r="6" fill="#42a5f5"/>
+  <circle cx="256" cy="300" r="6" fill="#42a5f5"/>
+  
+  <!-- Connection lines -->
+  <line x1="200" y1="230" x2="256" y2="220" stroke="#1976d2" stroke-width="4" opacity="0.7"/>
+  <line x1="256" y1="220" x2="310" y2="240" stroke="#1976d2" stroke-width="4" opacity="0.7"/>
+  <line x1="230" y1="280" x2="280" y2="290" stroke="#1976d2" stroke-width="4" opacity="0.7"/>
+  <line x1="200" y1="230" x2="230" y2="280" stroke="#1976d2" stroke-width="4" opacity="0.7"/>
+  <line x1="310" y1="240" x2="280" y2="290" stroke="#1976d2" stroke-width="4" opacity="0.7"/>
+  <line x1="180" y1="270" x2="230" y2="280" stroke="#42a5f5" stroke-width="3" opacity="0.6"/>
+  <line x1="320" y1="270" x2="280" y2="290" stroke="#42a5f5" stroke-width="3" opacity="0.6"/>
+  <line x1="256" y1="300" x2="280" y2="290" stroke="#42a5f5" stroke-width="3" opacity="0.6"/>
+  
+  <!-- Central mind map node -->
+  <circle cx="256" cy="256" r="20" fill="#ff5722" stroke="#ffffff" stroke-width="4"/>
+  <text x="256" y="266" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="24" font-weight="bold">AI</text>
+  
+  <!-- Secondary nodes -->
+  <circle cx="200" cy="200" r="12" fill="#4caf50" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="312" cy="200" r="12" fill="#ff9800" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="200" cy="312" r="12" fill="#9c27b0" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="312" cy="312" r="12" fill="#f44336" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Connection lines to secondary nodes -->
+  <line x1="256" y1="256" x2="200" y2="200" stroke="#ffffff" stroke-width="3" opacity="0.8"/>
+  <line x1="256" y1="256" x2="312" y2="200" stroke="#ffffff" stroke-width="3" opacity="0.8"/>
+  <line x1="256" y1="256" x2="200" y2="312" stroke="#ffffff" stroke-width="3" opacity="0.8"/>
+  <line x1="256" y1="256" x2="312" y2="312" stroke="#ffffff" stroke-width="3" opacity="0.8"/>
+</svg>

@@ -47,11 +47,7 @@
 在运行部署脚本之前，建议设置以下环境变量：
 
 ```bash
-# OpenAI API Key（可选，用于AI功能）
-export OPENAI_API_KEY="your-openai-api-key"
 
-# Windows 用户使用：
-set OPENAI_API_KEY=your-openai-api-key
 ```
 
 ## 常用管理命令

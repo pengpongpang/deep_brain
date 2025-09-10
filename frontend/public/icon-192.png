@@ -1,0 +1,31 @@
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1976d2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#42a5f5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="88" fill="url(#brainGradient)" stroke="#ffffff" stroke-width="4"/>
+  
+  <!-- Brain shape -->
+  <path d="M60 70 C50 60, 70 50, 80 60 C90 50, 110 50, 120 60 C130 50, 150 60, 140 70 C150 80, 140 100, 130 110 C140 120, 120 130, 110 120 C100 130, 80 130, 70 120 C50 130, 40 110, 50 100 C40 90, 50 80, 60 70 Z" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Neural connections -->
+  <circle cx="75" cy="85" r="3" fill="#1976d2"/>
+  <circle cx="95" cy="80" r="3" fill="#1976d2"/>
+  <circle cx="115" cy="90" r="3" fill="#1976d2"/>
+  <circle cx="85" cy="105" r="3" fill="#1976d2"/>
+  <circle cx="105" cy="110" r="3" fill="#1976d2"/>
+  
+  <!-- Connection lines -->
+  <line x1="75" y1="85" x2="95" y2="80" stroke="#1976d2" stroke-width="2" opacity="0.7"/>
+  <line x1="95" y1="80" x2="115" y2="90" stroke="#1976d2" stroke-width="2" opacity="0.7"/>
+  <line x1="85" y1="105" x2="105" y2="110" stroke="#1976d2" stroke-width="2" opacity="0.7"/>
+  <line x1="75" y1="85" x2="85" y2="105" stroke="#1976d2" stroke-width="2" opacity="0.7"/>
+  
+  <!-- Mind map nodes -->
+  <circle cx="96" cy="96" r="8" fill="#ff5722" stroke="#ffffff" stroke-width="2"/>
+  <text x="96" y="101" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AI</text>
+</svg>

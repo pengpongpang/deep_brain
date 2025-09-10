@@ -1,0 +1,188 @@
+.pwa-install-prompt {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 400px;
+  width: calc(100% - 40px);
+  background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(25, 118, 210, 0.3);
+  animation: slideUp 0.3s ease-out;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.pwa-install-content {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  gap: 12px;
+  color: white;
+}
+
+.pwa-install-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.pwa-install-icon svg {
+  color: white;
+}
+
+.pwa-install-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pwa-install-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+
+.pwa-install-text p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pwa-install-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pwa-install-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.pwa-install-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.pwa-install-button:active {
+  transform: translateY(0);
+}
+
+.pwa-dismiss-button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pwa-dismiss-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .pwa-install-prompt {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+    width: auto;
+    max-width: none;
+  }
+  
+  .pwa-install-content {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  
+  .pwa-install-text h3 {
+    font-size: 15px;
+  }
+  
+  .pwa-install-text p {
+    font-size: 13px;
+  }
+  
+  .pwa-install-actions {
+    flex-direction: column;
+    gap: 6px;
+    min-width: 80px;
+  }
+  
+  .pwa-install-button,
+  .pwa-dismiss-button {
+    padding: 6px 12px;
+    font-size: 13px;
+    text-align: center;
+  }
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .pwa-install-prompt {
+    background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+    box-shadow: 0 8px 32px rgba(21, 101, 192, 0.4);
+  }
+}
+
+/* 高对比度模式适配 */
+@media (prefers-contrast: high) {
+  .pwa-install-prompt {
+    border: 2px solid white;
+  }
+  
+  .pwa-install-button,
+  .pwa-dismiss-button {
+    border-width: 2px;
+  }
+}
+
+/* 减少动画模式适配 */
+@media (prefers-reduced-motion: reduce) {
+  .pwa-install-prompt {
+    animation: none;
+  }
+  
+  .pwa-install-button,
+  .pwa-dismiss-button {
+    transition: none;
+  }
+}
