@@ -400,12 +400,11 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
               onClick={() => setFullscreenOpen(true)}
               sx={{
                 position: 'absolute',
-                top: 8,
-                right: 8,
+                top: '-15px',
+                right: 0,
                 zIndex: 1,
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 1)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
                 },
               }}
             >
