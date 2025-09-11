@@ -2,6 +2,10 @@
 chcp 65001 >nul
 setlocal enabledelayedexpansion
 
+REM 启用Docker BuildKit以提升构建性能
+set DOCKER_BUILDKIT=1
+set COMPOSE_DOCKER_CLI_BUILD=1
+
 echo ========================================
 echo Deep Brain 项目自动部署脚本 (Windows)
 echo ========================================
@@ -48,12 +52,21 @@ if %errorLevel% neq 0 (
 )
 echo Docker服务正在运行
 
+:: 清理旧的Docker资源
+echo [3/7] 清理本项目的Docker资源...
+REM 停止并删除本项目的容器
+docker-compose -f docker-compose.prod.yml down --remove-orphans
+REM 删除本项目的镜像（如果存在）
+docker rmi deep-brain-frontend deep-brain-backend deep-brain-frontend-builder 2>nul || echo 镜像不存在，跳过删除
+REM 清理悬空镜像（dangling images）
+docker image prune -f
+
 :: 停止现有容器
-echo [3/6] 停止现有容器...
+echo [4/7] 停止现有容器...
 docker-compose down
 
 :: 构建开发镜像（用于打包前端）
-echo [4/6] 构建开发镜像并打包前端...
+echo [5/7] 构建开发镜像并打包前端...
 if not exist "frontend\build" mkdir frontend\build
 
 :: 构建前端开发镜像
@@ -70,7 +83,7 @@ docker cp temp-frontend:/app/build frontend/
 docker rm temp-frontend
 
 :: 检查和加载密钥配置
-echo [5/7] 检查和加载密钥配置...
+echo [6/7] 检查和加载密钥配置...
 call :check_and_load_secrets
 if !errorLevel! neq 0 (
     pause
@@ -78,13 +91,15 @@ if !errorLevel! neq 0 (
 )
 
 :: 使用预创建的生产环境配置
-echo [6/7] 使用生产环境配置...
+echo [7/7] 使用生产环境配置...
 
 :: 使用预创建的docker-compose.prod.yml文件
 
-:: 启动生产环境
-echo [7/7] 启动生产环境...
-docker-compose -f docker-compose.prod.yml up -d --build
+:: 启动生产环境（并行构建以提升速度）
+echo 启动生产环境...
+REM 并行构建所有服务
+docker-compose -f docker-compose.prod.yml build --parallel
+docker-compose -f docker-compose.prod.yml up -d
 if %errorLevel% neq 0 (
     echo 部署失败
     pause

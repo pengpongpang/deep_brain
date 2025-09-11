@@ -1,7 +1,35 @@
-FROM node:18-alpine
+# 多阶段构建优化版本
+# 第一阶段：依赖安装
+FROM node:18-alpine AS dependencies
 WORKDIR /app
+
+# 只复制package文件，利用Docker层缓存
 COPY package*.json ./
-RUN npm install
+
+# 安装依赖，使用npm ci获得更快的安装速度
+RUN npm ci --only=production --silent
+
+# 第二阶段：开发依赖和构建
+FROM node:18-alpine AS builder
+WORKDIR /app
+
+# 复制package文件
+COPY package*.json ./
+
+# 安装所有依赖（包括开发依赖）
+RUN npm ci --silent
+
+# 复制源代码
 COPY . .
+
+# 构建应用
 RUN npm run build
-CMD ["npm", "start"]
+
+# 第三阶段：构建结果镜像
+FROM node:18-alpine AS production
+WORKDIR /app
+
+# 从builder阶段复制构建结果
+COPY --from=builder /app/build ./build
+
+# 此镜像仅用于提取构建文件，不需要启动服务

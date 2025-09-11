@@ -5,6 +5,10 @@
 
 set -e  # 遇到错误立即退出
 
+# 启用Docker BuildKit以提升构建性能
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 echo "========================================"
 echo "Deep Brain 项目自动部署脚本 (Mac/Linux)"
 echo "========================================"
@@ -248,12 +252,11 @@ build_frontend() {
     # 创建构建目录
     mkdir -p frontend/build
     
-    # 构建前端开发镜像
-    log_info "构建前端开发镜像..."
+    log_info "构建前端打包镜像..."
     docker build -f frontend/Dockerfile.build -t deep-brain-frontend-builder frontend/
     
     # 从开发镜像中提取构建文件
-    log_info "提取构建文件..."
+    log_info "提取构建结果文件..."
     docker create --name temp-frontend deep-brain-frontend-builder
     docker cp temp-frontend:/app/build frontend/
     docker rm temp-frontend
@@ -326,8 +329,21 @@ use_production_config() {
 deploy_application() {
     log_info "[7/7] 启动生产环境..."
     
-    # 构建并启动容器
-    $COMPOSE_CMD -f docker-compose.prod.yml up -d --build
+    # 清理本项目的旧镜像和容器
+    log_info "清理本项目的Docker资源..."
+    # 停止并删除本项目的容器
+    $COMPOSE_CMD -f docker-compose.prod.yml down --remove-orphans
+    # 删除本项目的镜像（如果存在）
+    docker rmi deep-brain-frontend deep-brain-backend deep-brain-frontend-builder 2>/dev/null || true
+    # 清理悬空镜像（dangling images）
+    docker image prune -f
+    
+    # 构建并启动容器（并行构建以提升速度）
+    log_info "构建并启动Docker容器..."
+    $COMPOSE_CMD -f docker-compose.prod.yml down
+    # 并行构建所有服务
+    $COMPOSE_CMD -f docker-compose.prod.yml build --parallel
+    $COMPOSE_CMD -f docker-compose.prod.yml up -d
     
     # 等待服务启动
     log_info "等待服务启动..."
