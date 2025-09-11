@@ -357,6 +357,10 @@ const CustomNode: React.FC<NodeProps> = ({ id, data, selected }) => {
            anchorEl={descriptionAnchorEl}
            onClose={() => {
              setDescriptionAnchorEl(null);
+             // 重置description展开状态
+             if (descriptionExpanded) {
+               toggleDescriptionExpanded(id);
+             }
            }}
            anchorOrigin={{
              vertical: 'bottom',
