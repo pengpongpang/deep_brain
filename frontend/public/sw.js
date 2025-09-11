@@ -1,4 +1,4 @@
-const CACHE_NAME = 'deep-brain-v1';
+const CACHE_NAME = 'deep-brain-v2';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -56,6 +56,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 跳过API请求，确保API数据始终从后端获取
+  if (event.request.url.includes('/api/') || 
+      event.request.url.includes('/auth/') ||
+      event.request.url.includes('/mindmaps/') ||
+      event.request.url.includes('/tasks/') ||
+      event.request.url.includes('/llm/')) {
+    // API请求直接从网络获取，不使用缓存
+    console.log('Service Worker: API request, bypassing cache:', event.request.url);
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -80,7 +92,7 @@ self.addEventListener('fetch', (event) => {
             // 缓存新的响应
             caches.open(CACHE_NAME)
               .then((cache) => {
-                // 只缓存同源请求
+                // 只缓存同源请求，且不是API请求
                 if (event.request.url.startsWith(self.location.origin)) {
                   cache.put(event.request, responseToCache);
                 }
