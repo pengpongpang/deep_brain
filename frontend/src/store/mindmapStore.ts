@@ -295,6 +295,9 @@ const loadCollapsedState = (mindmapId: string): Set<string> => {
 };
 
 // 创建Zustand store
+// 防抖定时器
+let saveViewportTimer: NodeJS.Timeout | null = null;
+
 export const useMindmapStore = create<MindmapState>((set, get) => ({
   // 初始状态
   rawNodes: [],
@@ -710,8 +713,17 @@ export const useMindmapStore = create<MindmapState>((set, get) => ({
 
   // 视图状态管理
   saveViewport: (viewport: ViewportState) => {
-    set({ savedViewport: viewport });
-    console.log('Store: Saved viewport state:', viewport);
+    // 清除之前的定时器
+    if (saveViewportTimer) {
+      clearTimeout(saveViewportTimer);
+    }
+    
+    // 设置新的防抖定时器，300ms后执行保存
+    saveViewportTimer = setTimeout(() => {
+      set({ savedViewport: viewport });
+      console.log('Store: Saved viewport state:', viewport);
+      saveViewportTimer = null;
+    }, 300);
   },
 
   getSavedViewport: () => {

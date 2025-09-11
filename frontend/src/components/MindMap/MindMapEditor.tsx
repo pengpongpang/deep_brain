@@ -201,12 +201,6 @@ const ViewportHandler: React.FC<{
   const [hasRestoredViewport, setHasRestoredViewport] = useState(false);
   const [hasPerformedInitialFitView, setHasPerformedInitialFitView] = useState(false);
 
-  // 保存当前视图状态
-  const handleViewportChange = useCallback(() => {
-    const viewport = reactFlowInstance.getViewport();
-    saveViewport(viewport);
-  }, [reactFlowInstance, saveViewport]);
-
   // 初始fitView逻辑
   useEffect(() => {
     if (isInitialLoad && !hasPerformedInitialFitView) {
@@ -245,17 +239,8 @@ const ViewportHandler: React.FC<{
     }
   }, [shouldRestoreViewport, hasRestoredViewport, getSavedViewport, reactFlowInstance, onViewportRestored]);
 
-  // 监听视图变化并保存
-  useEffect(() => {
-    // 使用定时器定期保存视图状态，而不是依赖事件监听器
-    const interval = setInterval(() => {
-      handleViewportChange();
-    }, 500); // 每500ms保存一次视图状态
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [handleViewportChange]);
+  // 监听视图变化并保存 - 通过ReactFlow组件的onViewportChange属性处理
+  // 这个逻辑将移到ReactFlow组件的onViewportChange属性中
 
   // 重置恢复状态当shouldRestoreViewport变为false时
   useEffect(() => {
@@ -1430,6 +1415,7 @@ const MindMapEditor: React.FC = () => {
             onConnect={onConnect}
             onNodeDoubleClick={handleNodeDoubleClick}
             onNodeDragStop={onNodeDragStop}
+            onMove={(event, viewport) => saveViewport(viewport)}
             nodeTypes={nodeTypes}
             nodesDraggable={true}
             elementsSelectable={true}
