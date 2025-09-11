@@ -68,7 +68,9 @@ class User(UserBase):
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
+    expires_in: int  # access token过期时间（秒）
 
 class TokenData(BaseModel):
     email: Optional[str] = None

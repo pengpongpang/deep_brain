@@ -14,6 +14,7 @@ export interface User {
 interface AuthState {
   user: User | null;
   token: string | null;
+  refreshToken: string | null;
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
@@ -22,6 +23,7 @@ interface AuthState {
 const initialState: AuthState = {
   user: null,
   token: localStorage.getItem('token'),
+  refreshToken: localStorage.getItem('refreshToken'),
   isLoading: false,
   error: null,
   isAuthenticated: !!localStorage.getItem('token'),
@@ -34,6 +36,7 @@ export const loginUser = createAsyncThunk(
     try {
       const response = await authAPI.login(credentials);
       localStorage.setItem('token', response.data.access_token);
+      localStorage.setItem('refreshToken', response.data.refresh_token);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || '登录失败');
@@ -89,9 +92,11 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.refreshToken = null;
       state.isAuthenticated = false;
       state.error = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
     },
     clearError: (state) => {
       state.error = null;
@@ -100,6 +105,13 @@ const authSlice = createSlice({
       state.token = action.payload;
       state.isAuthenticated = true;
       localStorage.setItem('token', action.payload);
+    },
+    setTokens: (state, action: PayloadAction<{ accessToken: string; refreshToken: string }>) => {
+      state.token = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+      state.isAuthenticated = true;
+      localStorage.setItem('token', action.payload.accessToken);
+      localStorage.setItem('refreshToken', action.payload.refreshToken);
     },
   },
   extraReducers: (builder) => {
@@ -111,7 +123,8 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.token = (action.payload as any).access_token;
+        state.token = action.payload.access_token;
+        state.refreshToken = action.payload.refresh_token;
         state.isAuthenticated = true;
         state.error = null;
       })
@@ -166,5 +179,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setToken } = authSlice.actions;
+export const { logout, clearError, setToken, setTokens } = authSlice.actions;
 export default authSlice.reducer;

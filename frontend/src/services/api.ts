@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import { logout, setTokens } from '../store/slices/authSlice';
 
 // API基础配置
 // 使用相对路径，利用package.json中的proxy配置
@@ -12,6 +13,57 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Token刷新状态管理
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// 刷新token函数
+const refreshToken = async (): Promise<string | null> => {
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+      refresh_token: refreshToken
+    });
+
+    const newAccessToken = response.data.access_token;
+    const newRefreshToken = response.data.refresh_token;
+    
+    // 使用Redux action更新状态和localStorage
+    const { store } = require('../store/store');
+    store.dispatch(setTokens({ 
+      accessToken: newAccessToken, 
+      refreshToken: newRefreshToken 
+    }));
+    
+    return newAccessToken;
+  } catch (error) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+    throw error;
+  }
+};
 
 // 请求拦截器 - 添加认证token
 api.interceptors.request.use(
@@ -27,16 +79,41 @@ api.interceptors.request.use(
   }
 );
 
-// 响应拦截器 - 处理错误
+// 响应拦截器 - 处理token过期和自动刷新
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token过期或无效，清除本地存储并重定向到登录页
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // 如果正在刷新token，将请求加入队列
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await refreshToken();
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );
@@ -63,8 +140,9 @@ export interface RegisterRequest {
 
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
-  user: User;
+  expires_in: number;
 }
 
 export interface MindMapNode {

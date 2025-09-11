@@ -2,13 +2,16 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer
 from datetime import timedelta
 from models.user import UserCreate, UserLogin, User, Token, UserInDB
+from pydantic import BaseModel
 from utils.auth import (
     get_password_hash,
     authenticate_user,
     create_access_token,
+    create_refresh_token,
+    verify_refresh_token,
     get_current_active_user,
     get_user_by_email,
-    ACCESS_TOKEN_EXPIRE_HOURS
+    ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from database import get_users_collection
 from bson import ObjectId
@@ -68,14 +71,20 @@ async def login(user_credentials: UserLogin):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user["email"]}, expires_delta=access_token_expires
     )
     
+    refresh_token = create_refresh_token(
+        data={"sub": user["email"]}
+    )
+    
     return {
         "access_token": access_token,
-        "token_type": "bearer"
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60  # 转换为秒
     }
 
 @router.get("/me", response_model=User)
@@ -123,3 +132,46 @@ async def update_user_me(
     # 返回更新后的用户信息
     updated_user = await users_collection.find_one({"_id": ObjectId(current_user.id)})
     return User(**updated_user)
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(request: RefreshTokenRequest):
+    """刷新访问令牌"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    # 验证refresh token
+    payload = verify_refresh_token(request.refresh_token)
+    if payload is None:
+        raise credentials_exception
+    
+    email = payload.get("sub")
+    if email is None:
+        raise credentials_exception
+    
+    # 验证用户是否存在
+    user = await get_user_by_email(email)
+    if user is None:
+        raise credentials_exception
+    
+    # 生成新的access token和refresh token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_access_token = create_access_token(
+        data={"sub": email}, expires_delta=access_token_expires
+    )
+    
+    new_refresh_token = create_refresh_token(
+        data={"sub": email}
+    )
+    
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
