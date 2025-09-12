@@ -1380,8 +1380,6 @@ const MindMapEditor: React.FC = () => {
         isEditorPage={true}
         onSave={handleSave}
         onDelete={() => handleDeleteNode()}
-        onShare={() => console.log('分享功能待实现')}
-        onExport={() => console.log('导出功能待实现')}
       />
 
       {/* React Flow 画布 */}
@@ -1577,8 +1575,6 @@ const MindMapEditor: React.FC = () => {
         onClose={() => setSettingsMenuAnchor(null)}
       >
         <MenuItem onClick={() => handleNavigationConfirm('/mindmaps')}>返回列表</MenuItem>
-        <MenuItem onClick={() => {/* TODO: 实现分享功能 */}}>分享</MenuItem>
-        <MenuItem onClick={() => {/* TODO: 实现导出功能 */}}>导出</MenuItem>
       </Menu>
 
       {/* 删除确认对话框 */}

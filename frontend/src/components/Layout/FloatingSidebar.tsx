@@ -231,12 +231,6 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
             <IconButton onClick={onDelete} color="error" size="large" title="删除">
               <DeleteIcon />
             </IconButton>
-            <IconButton onClick={onShare} color="primary" size="large" title="分享">
-              <ShareIcon />
-            </IconButton>
-            <IconButton onClick={onExport} color="primary" size="large" title="导出">
-              <ExportIcon />
-            </IconButton>
             <Divider sx={{ my: 1 }} />
           </>
         )}
