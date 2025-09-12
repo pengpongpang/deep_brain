@@ -16,8 +16,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.getenv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production")
 REFRESH_SECRET_KEY = os.getenv("JWT_REFRESH_SECRET", "your-super-secret-refresh-key-change-in-production")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRATION_MINUTES", "15"))  # 15分钟
+ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_ACCESS_EXPIRATION_DAYS", "2"))  # 2天
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))  # 7天
+REFRESH_INTERVAL_DAYS = int(os.getenv("JWT_REFRESH_INTERVAL_DAYS", "1"))  # 1天刷新一次
 
 security = HTTPBearer()
 
@@ -35,13 +36,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     
     to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None, last_refresh: Optional[float] = None):
     """创建JWT刷新令牌"""
     to_encode = data.copy()
     if expires_delta:
@@ -49,7 +50,15 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     
-    to_encode.update({"exp": expire, "type": "refresh"})
+    # 添加刷新时间戳
+    if last_refresh is None:
+        last_refresh = datetime.utcnow().timestamp()
+    
+    to_encode.update({
+        "exp": expire, 
+        "type": "refresh",
+        "last_refresh": last_refresh
+    })
     encoded_jwt = jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -59,6 +68,21 @@ def verify_refresh_token(token: str) -> Optional[dict]:
         payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "refresh":
             return None
+            
+        # 检查上次刷新时间，如果未设置last_refresh，则设为当前时间减去刷新间隔
+        last_refresh = payload.get("last_refresh")
+        if not last_refresh:
+            # 首次刷新，设置为当前时间减去刷新间隔，确保可以刷新
+            last_refresh = (datetime.utcnow() - timedelta(days=REFRESH_INTERVAL_DAYS)).timestamp()
+            
+        # 计算距离上次刷新的时间
+        now = datetime.utcnow().timestamp()
+        days_since_refresh = (now - last_refresh) / (24 * 3600)  # 转换为天数
+        
+        # 更新payload中的last_refresh时间
+        payload["last_refresh"] = now if days_since_refresh >= REFRESH_INTERVAL_DAYS else last_refresh
+        payload["should_refresh"] = days_since_refresh >= REFRESH_INTERVAL_DAYS
+            
         return payload
     except JWTError:
         return None

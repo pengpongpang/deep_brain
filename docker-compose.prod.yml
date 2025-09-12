@@ -25,7 +25,9 @@ services:
       - MONGODB_URI=mongodb://admin:password123@mongodb:27017/deepbrain?authSource=admin
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ALGORITHM=HS256
-      - JWT_EXPIRATION_HOURS=24
+      - JWT_ACCESS_EXPIRATION_DAYS=2
+      - JWT_REFRESH_EXPIRATION_DAYS=7
+      - JWT_REFRESH_INTERVAL_DAYS=1
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
       - DEBUG=False

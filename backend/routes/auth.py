@@ -11,7 +11,7 @@ from utils.auth import (
     verify_refresh_token,
     get_current_active_user,
     get_user_by_email,
-    ACCESS_TOKEN_EXPIRE_MINUTES
+    ACCESS_TOKEN_EXPIRE_DAYS
 )
 from database import get_users_collection
 from bson import ObjectId
@@ -71,7 +71,7 @@ async def login(user_credentials: UserLogin):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     access_token = create_access_token(
         data={"sub": user["email"]}, expires_delta=access_token_expires
     )
@@ -84,7 +84,7 @@ async def login(user_credentials: UserLogin):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60  # 转换为秒
+        "expires_in": ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60 * 60  # 转换为秒
     }
 
 @router.get("/me", response_model=User)
@@ -159,19 +159,28 @@ async def refresh_token(request: RefreshTokenRequest):
     if user is None:
         raise credentials_exception
     
-    # 生成新的access token和refresh token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # 生成新的access token
+    access_token_expires = timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     new_access_token = create_access_token(
         data={"sub": email}, expires_delta=access_token_expires
     )
     
-    new_refresh_token = create_refresh_token(
-        data={"sub": email}
-    )
+    # 检查是否需要刷新refresh token（根据刷新间隔）
+    should_refresh = payload.get("should_refresh", False)
+    last_refresh = payload.get("last_refresh")
+    
+    if should_refresh:
+        # 如果需要刷新，生成新的refresh token
+        new_refresh_token = create_refresh_token(
+            data={"sub": email}
+        )
+    else:
+        # 如果不需要刷新，继续使用原来的refresh token
+        new_refresh_token = request.refresh_token
     
     return {
         "access_token": new_access_token,
         "refresh_token": new_refresh_token,
         "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        "expires_in": ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60 * 60  # 转换为秒
     }
