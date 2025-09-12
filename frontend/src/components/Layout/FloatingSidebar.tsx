@@ -46,9 +46,9 @@ import {
 import { RootState, AppDispatch } from '../../store/store';
 import { setTheme } from '../../store/slices/uiSlice';
 import { logout } from '../../store/slices/authSlice';
-import { fetchMindmaps, deleteMindmap } from '../../store/slices/mindmapSlice';
 import { addNotification } from '../../store/slices/uiSlice';
 import TaskNotificationMenu from '../Notifications/TaskNotificationMenu';
+import { mindmapAPI } from '../../services/api';
 
 interface FloatingSidebarProps {
   onSave?: () => void;
@@ -115,10 +115,30 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
     setNotificationAnchorEl(null);
   };
 
+  // 本地状态存储思维导图列表数据
+  const [localMindmaps, setLocalMindmaps] = useState<any[]>([]);
+  const [isLocalLoading, setIsLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  
   // 处理思维导图列表
-  const handleListOpen = () => {
-    dispatch(fetchMindmaps());
+  const handleListOpen = async () => {
+    console.log('打开思维导图列表弹窗');
+    // 先设置弹窗状态为打开
     setListDialogOpen(true);
+    
+    try {
+      // 直接使用API获取数据，不通过Redux
+      setIsLocalLoading(true);
+      setLocalError(null);
+      const response = await mindmapAPI.getMindmaps();
+      console.log('直接获取思维导图列表数据成功:', response.data);
+      setLocalMindmaps(response.data);
+    } catch (error) {
+      console.error('获取思维导图列表失败:', error);
+      setLocalError('获取思维导图列表失败，请稍后重试');
+    } finally {
+      setIsLocalLoading(false);
+    }
   };
 
   const handleListClose = () => {
@@ -158,7 +178,10 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
   const handleDeleteConfirm = async () => {
     if (mindmapToDelete) {
       try {
-        await dispatch(deleteMindmap(mindmapToDelete)).unwrap();
+        // 直接使用API删除思维导图
+        await mindmapAPI.deleteMindmap(mindmapToDelete);
+        // 更新本地数据
+        setLocalMindmaps(prevMindmaps => prevMindmaps.filter(m => m.id !== mindmapToDelete));
         dispatch(addNotification({
           type: 'success',
           message: '思维导图删除成功',
@@ -174,8 +197,8 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
     setMindmapToDelete(null);
   };
 
-  // 过滤思维导图列表
-  const filteredMindmaps = mindmaps.filter(mindmap =>
+  // 过滤思维导图列表，使用本地数据而非Redux数据
+  const filteredMindmaps = localMindmaps.filter(mindmap =>
     mindmap.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (mindmap.description && mindmap.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -304,9 +327,13 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
             />
           </Box>
 
-          {isLoading ? (
+          {isLocalLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <Typography>加载中...</Typography>
+            </Box>
+          ) : localError ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+              <Typography color="error">{localError}</Typography>
             </Box>
           ) : filteredMindmaps.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>

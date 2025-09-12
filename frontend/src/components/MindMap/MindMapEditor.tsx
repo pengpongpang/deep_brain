@@ -21,17 +21,7 @@ import FloatingSidebar from '../Layout/FloatingSidebar';
 import SaveConfirmDialog from '../Common/SaveConfirmDialog';
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning';
 import { useMindmapSnapshot } from '../../hooks/useMindmapSnapshot';
-import {
-  Save as SaveIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Share as ShareIcon,
-  Settings as SettingsIcon,
-  ZoomIn as ZoomInIcon,
-  ZoomOut as ZoomOutIcon,
-  FitScreen as FitScreenIcon,
-  AutoAwesome as AIIcon,
-} from '@mui/icons-material';
+
 import ReactFlow, {
   Node,
   Edge,
@@ -1073,9 +1063,9 @@ const MindMapEditor: React.FC = () => {
     setPendingNavigation(null);
   }, [pendingNavigation, navigate]);
 
-  // 使用路由变化警告钩子
+  // 使用路由变化警告钩子 - 仅在思维导图存在时启用
   const { showDialog, dialogProps } = useUnsavedChangesWarning({
-    hasUnsavedChanges: checkUnsavedChanges,
+    hasUnsavedChanges: currentMindmap ? checkUnsavedChanges : false,
     onSave: handleSave,
     message: '您有未保存的更改，是否要保存？',
   });
@@ -1366,8 +1356,19 @@ const MindMapEditor: React.FC = () => {
 
   if (!currentMindmap) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh" flexDirection="column">
         <Typography>思维导图不存在</Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          sx={{ mt: 2 }}
+          onClick={() => {
+            // 直接使用window.location.href进行导航，绕过React Router的导航拦截
+            window.location.href = '/';
+          }}
+        >
+          返回思维导图列表
+        </Button>
       </Box>
     );
   }
