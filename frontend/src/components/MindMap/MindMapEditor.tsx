@@ -3,8 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
-  Paper,
-  Toolbar,
   IconButton,
   Typography,
   Button,
@@ -19,6 +17,7 @@ import {
   MenuItem,
   Chip,
 } from '@mui/material';
+import FloatingSidebar from '../Layout/FloatingSidebar';
 import SaveConfirmDialog from '../Common/SaveConfirmDialog';
 import { useUnsavedChangesWarning } from '../../hooks/useUnsavedChangesWarning';
 import { useMindmapSnapshot } from '../../hooks/useMindmapSnapshot';
@@ -356,6 +355,8 @@ const MindMapEditor: React.FC = () => {
   useEffect(() => {
     if (id) {
       dispatch(fetchMindmapById(id));
+      // 保存最近编辑的思维导图ID到本地存储
+      localStorage.setItem('lastEditedMindmap', id);
     }
   }, [dispatch, id]);
 
@@ -1372,35 +1373,15 @@ const MindMapEditor: React.FC = () => {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 64px - 48px)', display: 'flex', flexDirection: 'column' }}>
-      {/* 工具栏 */}
-      <Paper elevation={1} sx={{ zIndex: 1000 }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {currentMindmap.title}
-          </Typography>
-          
-          <Button
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            sx={{ mr: 1 }}
-          >
-            保存
-          </Button>
-          
-          <IconButton
-            onClick={() => handleDeleteNode()}
-            disabled={!selectedNode && selectedNodes.length === 0}
-            color="error"
-          >
-            <DeleteIcon />
-          </IconButton>
-          
-          <IconButton onClick={(e) => setSettingsMenuAnchor(e.currentTarget)}>
-            <SettingsIcon />
-          </IconButton>
-        </Toolbar>
-      </Paper>
+    <Box sx={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
+      {/* 左侧悬浮侧边栏 */}
+      <FloatingSidebar 
+        isEditorPage={true}
+        onSave={handleSave}
+        onDelete={() => handleDeleteNode()}
+        onShare={() => console.log('分享功能待实现')}
+        onExport={() => console.log('导出功能待实现')}
+      />
 
       {/* React Flow 画布 */}
       <Box sx={{ flexGrow: 1, position: 'relative' }}>

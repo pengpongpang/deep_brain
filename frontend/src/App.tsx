@@ -12,7 +12,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 
 import MindMapEditor from './components/MindMap/MindMapEditor';
-import MindMapList from './components/MindMap/MindMapList';
+import DefaultMindMapLoader from './components/MindMap/DefaultMindMapLoader';
 import Profile from './components/Profile/Profile';
 
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -139,11 +139,11 @@ function App() {
           {/* 公开路由 */}
           <Route 
             path="/login" 
-            element={!isAuthenticated ? <Login /> : <Navigate to="/mindmaps" />} 
+            element={!isAuthenticated ? <Login /> : <Navigate to="/" />} 
           />
           <Route 
             path="/register" 
-            element={!isAuthenticated ? <Register /> : <Navigate to="/mindmaps" />} 
+            element={!isAuthenticated ? <Register /> : <Navigate to="/" />} 
           />
           
           {/* 受保护的路由 */}
@@ -155,17 +155,15 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/mindmaps" />} />
-            <Route path="mindmaps" element={<MindMapList />} />
-            <Route path="mindmaps/:id" element={<MindMapEditor />} />
-
+            <Route index element={<DefaultMindMapLoader />} />
+            <Route path="mindmap/:id" element={<MindMapEditor />} />
             <Route path="profile" element={<Profile />} />
           </Route>
           
           {/* 默认重定向 */}
           <Route 
             path="*" 
-            element={<Navigate to={isAuthenticated ? "/mindmaps" : "/login"} />} 
+            element={<Navigate to={isAuthenticated ? "/" : "/login"} />} 
           />
       </Routes>
       
