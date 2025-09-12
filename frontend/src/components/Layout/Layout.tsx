@@ -21,16 +21,17 @@ import {
 import {
   Menu as MenuIcon,
   AccountTree as MindMapIcon,
-  Assignment as TaskIcon,
   Person as PersonIcon,
   Logout as LogoutIcon,
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { RootState, AppDispatch } from '../../store/store';
 import { toggleSidebar, setTheme } from '../../store/slices/uiSlice';
 import { logout } from '../../store/slices/authSlice';
+import TaskNotificationMenu from '../Notifications/TaskNotificationMenu';
 
 const drawerWidth = 240;
 
@@ -40,6 +41,7 @@ const Layout: React.FC = () => {
   const { sidebarOpen, theme } = useSelector((state: RootState) => state.ui);
   const { user } = useSelector((state: RootState) => state.auth);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [notificationAnchorEl, setNotificationAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleDrawerToggle = () => {
     dispatch(toggleSidebar());
@@ -68,9 +70,16 @@ const Layout: React.FC = () => {
     handleProfileMenuClose();
   };
 
+  const handleNotificationMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationMenuClose = () => {
+    setNotificationAnchorEl(null);
+  };
+
   const menuItems = [
     { text: '思维导图', icon: <MindMapIcon />, path: '/mindmaps' },
-    { text: '任务管理', icon: <TaskIcon />, path: '/tasks' },
   ];
 
   const drawer = (
@@ -119,6 +128,13 @@ const Layout: React.FC = () => {
           </Typography>
           <IconButton color="inherit" onClick={handleThemeToggle}>
             {theme === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
+          </IconButton>
+          <IconButton
+            color="inherit"
+            onClick={handleNotificationMenuOpen}
+            aria-label="notifications"
+          >
+            <NotificationsIcon />
           </IconButton>
           <IconButton
             size="large"
@@ -187,6 +203,12 @@ const Layout: React.FC = () => {
           退出登录
         </MenuItem>
       </Menu>
+      
+      <TaskNotificationMenu
+        anchorEl={notificationAnchorEl}
+        open={Boolean(notificationAnchorEl)}
+        onClose={handleNotificationMenuClose}
+      />
     </Box>
   );
 };
