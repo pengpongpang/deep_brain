@@ -16,6 +16,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   TextField,
   InputAdornment,
   Button,
@@ -24,6 +25,7 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
+import { useForm } from 'react-hook-form';
 import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
@@ -42,11 +44,13 @@ import {
   Lock as PrivateIcon,
   AccountTree as NodesIcon,
   Schedule as DateIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { RootState, AppDispatch } from '../../store/store';
 import { setTheme } from '../../store/slices/uiSlice';
 import { logout } from '../../store/slices/authSlice';
 import { addNotification } from '../../store/slices/uiSlice';
+import { createMindmap } from '../../store/slices/mindmapSlice';
 import TaskNotificationMenu from '../Notifications/TaskNotificationMenu';
 import { mindmapAPI } from '../../services/api';
 
@@ -80,6 +84,20 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
   const [selectedMindmapId, setSelectedMindmapId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mindmapToDelete, setMindmapToDelete] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // 表单处理
+  interface CreateMindMapFormData {
+    topic: string;
+    description?: string;
+  }
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateMindMapFormData>();
 
   // 处理主题切换
   const handleThemeToggle = () => {
@@ -195,6 +213,64 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
     }
     setDeleteDialogOpen(false);
     setMindmapToDelete(null);
+  };
+
+  // 处理新增思维导图
+  const handleCreateNew = () => {
+    setCreateDialogOpen(true);
+    setListDialogOpen(false);
+  };
+
+  // 创建思维导图
+  const handleCreateMindMap = async (data: CreateMindMapFormData) => {
+    try {
+      // 创建只有根节点的思维导图
+      const rootNode = {
+        id: 'root',
+        type: 'custom',
+        position: { x: 400, y: 200 },
+        data: {
+          label: data.topic,
+          level: 0,
+          isRoot: true,
+          description: data.description || ''
+        },
+        style: {
+          background: '#ff6b6b',
+          color: 'white',
+          border: '2px solid #ff5252',
+          borderRadius: '10px',
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }
+      };
+
+      const result = await dispatch(createMindmap({
+        title: data.topic,
+        description: data.description,
+        nodes: [rootNode],
+        edges: [],
+        layout: 'hierarchical',
+        theme: 'default',
+        is_public: false
+      })).unwrap();
+      
+      if (result) {
+        dispatch(addNotification({
+          type: 'success',
+          message: '思维导图创建成功！',
+        }));
+        setCreateDialogOpen(false);
+        reset();
+        // 导航到新创建的思维导图
+        navigate(`/mindmap/${result.id}`);
+      }
+    } catch (error) {
+      dispatch(addNotification({
+        type: 'error',
+        message: '创建思维导图失败，请重试',
+      }));
+    }
   };
 
   // 过滤思维导图列表，使用本地数据而非Redux数据
@@ -321,6 +397,17 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
             />
           </Box>
 
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateNew}
+              sx={{ borderRadius: 2 }}
+            >
+              新增思维导图
+            </Button>
+          </Box>
+
           {isLocalLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <Typography>加载中...</Typography>
@@ -431,6 +518,44 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
           分享
         </MenuItem>
       </Menu>
+
+      {/* 创建思维导图对话框 */}
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>创建新的思维导图</DialogTitle>
+        <form onSubmit={handleSubmit(handleCreateMindMap)}>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="主题"
+              fullWidth
+              variant="outlined"
+              {...register('topic', { required: '请输入主题' })}
+              error={!!errors.topic}
+              helperText={errors.topic?.message}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="描述（可选）"
+              fullWidth
+              multiline
+              rows={3}
+              variant="outlined"
+              {...register('description')}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCreateDialogOpen(false)}>取消</Button>
+            <Button 
+              type="submit" 
+              variant="contained"
+            >
+              创建
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
 
       {/* 删除确认对话框 */}
       <Dialog
