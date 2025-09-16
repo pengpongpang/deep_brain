@@ -253,7 +253,6 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
   // 处理新增思维导图
   const handleCreateNew = () => {
     setCreateDialogOpen(true);
-    setListDialogOpen(false);
   };
 
   // 创建思维导图
@@ -298,8 +297,14 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
         }));
         setCreateDialogOpen(false);
         reset();
-        // 导航到新创建的思维导图
-        navigate(`/mindmap/${result.id}`);
+        
+        // 刷新思维导图列表
+        try {
+          const response = await mindmapAPI.getMindmaps();
+          setLocalMindmaps(response.data);
+        } catch (error) {
+          console.error('刷新思维导图列表失败:', error);
+        }
       }
     } catch (error) {
       dispatch(addNotification({
