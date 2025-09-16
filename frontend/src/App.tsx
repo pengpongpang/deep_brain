@@ -93,26 +93,54 @@ function App() {
           .then((registration) => {
             console.log('SW registered: ', registration);
             
+            // 立即检查更新
+            registration.update();
+            
             // 检查更新
             registration.addEventListener('updatefound', () => {
               const newWorker = registration.installing;
               if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // 有新版本可用
-                    if (window.confirm('发现新版本，是否立即更新？')) {
-                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    // 有新版本可用，自动更新
+                    console.log('发现新版本，正在更新...');
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    
+                    // 延迟刷新，让用户看到更新提示
+                    setTimeout(() => {
                       window.location.reload();
-                    }
+                    }, 1000);
                   }
                 });
               }
             });
+
+            // 监听Service Worker消息
+            navigator.serviceWorker.addEventListener('message', (event) => {
+              if (event.data && event.data.type === 'CACHE_CLEARED') {
+                console.log('缓存已清除，正在重新加载...');
+                window.location.reload();
+              }
+            });
+
+            // 定期检查更新（每5分钟）
+            setInterval(() => {
+              registration.update();
+            }, 5 * 60 * 1000);
           })
           .catch((registrationError) => {
             console.log('SW registration failed: ', registrationError);
           });
       });
+
+      // 添加全局强制更新函数
+      (window as any).forceUpdate = () => {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'FORCE_UPDATE' });
+        } else {
+          window.location.reload();
+        }
+      };
     }
   }, []);
 

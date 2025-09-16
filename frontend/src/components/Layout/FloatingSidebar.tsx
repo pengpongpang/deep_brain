@@ -45,6 +45,7 @@ import {
   AccountTree as NodesIcon,
   Schedule as DateIcon,
   Add as AddIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { RootState, AppDispatch } from '../../store/store';
 import { setTheme } from '../../store/slices/uiSlice';
@@ -121,6 +122,41 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
 
   const handleProfileClick = () => {
     navigate('/profile');
+    handleProfileMenuClose();
+  };
+
+  const handleClearCache = async () => {
+    try {
+      // 清除浏览器缓存
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+      }
+
+      // 通知Service Worker强制更新
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'FORCE_UPDATE' });
+      }
+
+      dispatch(addNotification({
+        type: 'success',
+        message: '缓存清除成功！页面将自动刷新...',
+      }));
+
+      // 1秒后刷新页面
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (error) {
+      console.error('清除缓存失败:', error);
+      dispatch(addNotification({
+        type: 'error',
+        message: '清除缓存失败，请尝试手动刷新页面',
+      }));
+    }
     handleProfileMenuClose();
   };
 
@@ -342,6 +378,12 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
             <PersonIcon fontSize="small" />
           </ListItemIcon>
           个人资料
+        </MenuItem>
+        <MenuItem onClick={handleClearCache}>
+          <ListItemIcon>
+            <RefreshIcon fontSize="small" />
+          </ListItemIcon>
+          清除缓存
         </MenuItem>
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
