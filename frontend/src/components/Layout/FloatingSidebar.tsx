@@ -51,7 +51,6 @@ import { RootState, AppDispatch } from '../../store/store';
 import { setTheme } from '../../store/slices/uiSlice';
 import { logout } from '../../store/slices/authSlice';
 import { addNotification } from '../../store/slices/uiSlice';
-import { createMindmap } from '../../store/slices/mindmapSlice';
 import TaskNotificationMenu from '../Notifications/TaskNotificationMenu';
 import { mindmapAPI } from '../../services/api';
 
@@ -281,15 +280,16 @@ const FloatingSidebar: React.FC<FloatingSidebarProps> = ({
         }
       };
 
-      const result = await dispatch(createMindmap({
+      // 直接调用API创建思维导图，避免Redux状态更新
+      const response = await mindmapAPI.createMindmap({
         title: data.topic,
         description: data.description,
         nodes: [rootNode],
         edges: [],
-        layout: 'hierarchical',
-        theme: 'default',
         is_public: false
-      })).unwrap();
+      });
+      
+      const result = response.data;
       
       if (result) {
         dispatch(addNotification({

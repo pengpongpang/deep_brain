@@ -85,7 +85,7 @@ const DefaultMindMapLoader: React.FC = () => {
       saveLastEditedMindmapId(result.id);
       
       // 导航到新创建的思维导图
-      navigate(`/mindmap/${result.id}`);
+      handleSelectMindmap(result.id);
     } catch (error) {
       console.error('创建思维导图失败:', error);
     }
