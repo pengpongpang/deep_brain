@@ -17,7 +17,7 @@
 deep-brain/
 ├── docker-compose.yml          # Docker编排配置
 ├── README.md                   # 项目说明
-├── .env.example               # 环境变量示例
+├── .env.secrets               # 环境变量配置
 ├── backend/                   # Python后端
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -41,20 +41,15 @@ deep-brain/
 ## 快速开始
 
 1. 克隆项目并进入目录
-2. 复制环境变量文件: `cp .env.example .env`
-3. 配置OpenAI API Key在.env文件中
-4. 前端环境配置（可选）:
-   - 复制前端环境变量文件: `cp frontend/.env.example frontend/.env.local`
-   - 根据部署环境配置API URL
-5. 启动服务: `docker-compose up -d`
-6. 访问应用: http://localhost:3000
+2. 配置环境变量文件 `.env.secrets`，设置以下必要的密钥：
+   - `DEEPSEEK_API_KEY`: DeepSeek API密钥
+   - `JWT_SECRET`: JWT认证密钥
+3. 启动服务: `docker-compose up -d`
+4. 访问应用: http://localhost:3000
 
 ## 环境配置说明
 
-### 前端API配置
-- **开发环境**: 前端使用相对路径 `/api`，通过proxy代理到后端
-- **生产环境**: 需要在 `frontend/.env.local` 中设置 `REACT_APP_API_URL` 为完整的API服务器地址
-- **示例配置**: 参考 `frontend/.env.example` 文件
+项目只需要配置 `.env.secrets` 文件即可，该文件包含所有必要的环境变量配置。
 
 ## 核心功能
 
