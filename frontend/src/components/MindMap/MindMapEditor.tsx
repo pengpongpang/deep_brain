@@ -1374,7 +1374,7 @@ const MindMapEditor: React.FC = () => {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* 左侧悬浮侧边栏 */}
       <FloatingSidebar 
         isEditorPage={true}
