@@ -94,7 +94,7 @@ const NodeEditDialog: React.FC<{
   }, [onClose]);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>编辑节点</DialogTitle>
       <DialogContent>
         <TextField
@@ -121,7 +121,7 @@ const NodeEditDialog: React.FC<{
           label="详细描述"
           fullWidth
           multiline
-          rows={4}
+          rows={8}
           variant="outlined"
           value={formData.description}
           onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
